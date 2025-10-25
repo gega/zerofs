@@ -267,3 +267,7 @@ int zerofs_background_erase(struct zerofs *zfs);
 
 Performs background flash erases while in **READ mode**.
 Does not block reads, but must complete before switching to WRITE mode.
+
+# Third-party components
+
+LittleFS v2.11.2 and Lua v5.4.8 are included here to make sure build would succeed.
