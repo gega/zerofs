@@ -13,7 +13,7 @@ Most embedded filesystems are generalists: they sacrifice RAM, flash, and CPU ti
 zerofs is a specialist. It focuses on **devices with distinct read/write phases**, delivering:
 
 * Minimal RAM usage
-  - less than 100 bytes in READ mode
+  - less than 200 bytes in READ mode
   - ~1K in WRITE mode
 * Predictable behavior
 * Simplified flash management
