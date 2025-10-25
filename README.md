@@ -77,6 +77,13 @@ This mode separation allows deterministic memory usage and faster access with mi
 Under the same workload, zerofs performs **about half the flash operations** of LittleFS.
 LittleFS provides more features and flexibility, but for certain patterns, zerofs offers far better **RAM and speed efficiency**.
 
+| fs       | time       |
+|----------|------------|
+| littlefs | 86772.4 ms |
+| zerofs   | 44204.2 ms |
+
+*Note: measurements based on the timings of nRF52 series and the BY25Q32ES SPI flash IC.*
+
 ---
 
 ## Test Harness
