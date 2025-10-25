@@ -3,13 +3,15 @@
 **zerofs** is a dual-flash based embedded filesystem for devices where reads and writes happen in separate phases.
 It’s made for systems that *don’t behave like general-purpose computers* — for example, a sensor that occasionally logs data but spends most of its time reading back those files.
 
-zerofs optimized exactly for this specific usage pattern. No directories, no journaling, no heap allocations, no power-failure recovery. Just deterministic, low-memory file access with full flash utilization. Data flash sectors contains no administrative data, just the payload. The superblock contains every metadata which besides in a separate flash area. It should be used only for battery powered device when the power failure can be predictable.
+zerofs optimized exactly for this specific usage pattern. No directories, no journaling, no heap allocations, no power-failure recovery. Just deterministic, low-memory file access with full flash utilization. Data flash sectors contains no administrative data, just the payload. The superblock contains every metadata which besides in a separate flash area.
+
+*NOTE: Zerofs should be used only for battery powered device when the power failure is predictable.*
 
 ---
 
 ## Why
 
-Most embedded filesystems provide the "usual" filesystem API: they sacrifice RAM, flash, and CPU time to support every scenario.
+Most embedded filesystems provide the "usual" general filesystem API: they sacrifice RAM, flash, and CPU time to support every scenario.
 zerofs is a specialist. It focuses on **devices with distinct read/write phases**, delivering:
 
 * Minimal RAM usage
