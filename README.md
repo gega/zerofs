@@ -68,11 +68,11 @@ This mode separation allows deterministic memory usage and faster access with mi
 
 ### zerofs
 
-[▶️ Recording](https://asciinema.org/a/XXMliaC3RemByzUO1Z5Q1EsBN)
+[![asciicast](https://asciinema.org/a/XXMliaC3RemByzUO1Z5Q1EsBN.svg)](https://asciinema.org/a/XXMliaC3RemByzUO1Z5Q1EsBN)
 
 ### LittleFS (for comparison)
 
-[▶️ Recording](https://asciinema.org/a/M15Q0NelQnfHv3SEn3EnuyonZ)
+[![asciicast](https://asciinema.org/a/M15Q0NelQnfHv3SEn3EnuyonZ.svg)](https://asciinema.org/a/M15Q0NelQnfHv3SEn3EnuyonZ)
 
 Under the same workload, zerofs performs **about half the flash operations** of LittleFS.
 LittleFS provides more features and flexibility, but for certain patterns, zerofs offers far better **RAM and speed efficiency**.
