@@ -230,24 +230,28 @@ int zerofs_format(struct zerofs *zfs);
 
 Erases all files and resets the filesystem.
 
+^⎚-⎚^
 ```c
 int zerofs_open(struct zerofs *zfs, struct zerofs_file *fp, const char *name);
 ```
 
 Opens a file for reading (READ mode only).
 
+✒
 ```c
 int zerofs_create(struct zerofs *zfs, struct zerofs_file *fp, const char *name);
 ```
 
 Creates and opens a file for writing (WRITE mode only).
 
+✒
 ```c
 int zerofs_append(struct zerofs *zfs, struct zerofs_file *fp, const char *name);
 ```
 
 Opens an existing file for appending (WRITE mode only).
 
+✒
 ```c
 int zerofs_close(struct zerofs_file *fp);
 ```
@@ -255,18 +259,21 @@ int zerofs_close(struct zerofs_file *fp);
 Closes a file.
 For read-only files, this is effectively a no-op.
 
+^⎚-⎚^
 ```c
 int zerofs_read(struct zerofs_file *fp, uint8_t *buf, uint32_t len);
 ```
 
 Reads up to `len` bytes from a file opened for reading.
 
+✒
 ```c
 int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len);
 ```
 
 Writes up to `len` bytes to a file opened for writing.
 
+^⎚-⎚^
 ```c
 int zerofs_seek(struct zerofs_file *fp, int32_t pos);
 ```
@@ -275,6 +282,7 @@ Moves the read pointer within a file.
 Negative offsets are relative to the end of the file.
 Seeking is **not supported during write mode**.
 
+✒
 ```c
 int zerofs_delete(struct zerofs *zfs, const char *name);
 ```
