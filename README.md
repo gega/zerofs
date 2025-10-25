@@ -137,6 +137,7 @@ All functions return `0` on success or a negative error code on failure.
 #define ZEROFS_ERR_ARG        (-7)  // Invalid argument
 #define ZEROFS_ERR_WRITEMODE  (-8)  // Operation not allowed in WRITE mode
 #define ZEROFS_ERR_OVERFLOW   (-9)  // Seek/write overflow
+#define ZEROFS_ERR_BADSECTOR (-10)  // Bad sector detected
 ```
 
 ---
