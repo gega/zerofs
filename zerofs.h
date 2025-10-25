@@ -93,15 +93,16 @@ static const char *zerofs_extensions[]=
 };
 
 // error codes
-#define ZEROFS_ERR_MAXFILES  (-2) // ZEROFS_MAX_NUMBER_OF_FILES reached
-#define ZEROFS_ERR_NOTFOUND  (-3)
-#define ZEROFS_ERR_READMODE  (-4)
-#define ZEROFS_ERR_NOSPACE   (-5)
-#define ZEROFS_ERR_OPEN      (-6)
-#define ZEROFS_ERR_ARG       (-7)
-#define ZEROFS_ERR_WRITEMODE (-8)
-#define ZEROFS_ERR_OVERFLOW  (-9)
-#define ZEROFS_ERR_BADSECTOR (-10)
+#define ZEROFS_ERR_MAXFILES    (-2) // ZEROFS_MAX_NUMBER_OF_FILES reached
+#define ZEROFS_ERR_NOTFOUND    (-3)
+#define ZEROFS_ERR_READMODE    (-4)
+#define ZEROFS_ERR_NOSPACE     (-5)
+#define ZEROFS_ERR_OPEN        (-6)
+#define ZEROFS_ERR_ARG         (-7)
+#define ZEROFS_ERR_WRITEMODE   (-8)
+#define ZEROFS_ERR_OVERFLOW    (-9)
+#define ZEROFS_ERR_BADSECTOR   (-10)
+#define ZEROFS_ERR_INVALIDNAME (-11)
 
 // get sector_map index from the base of last_written
 #define ZEROFS_BLOCK(zfs, i) (((zfs)->meta.last_written+(i))%ZEROFS_NUMBER_OF_SECTORS)
@@ -156,6 +157,8 @@ struct zerofs
 
 static_assert(sizeof(struct zerofs_superblock)<=ZEROFS_FLASH_SECTOR_SIZE, "Superblock too large, reduce ZEROFS_MAX_NUMBER_OF_FILES!");
 
+#define ZEROFS_FILE_NOMORE (1<<0)
+
 struct zerofs_file
 {
   struct zerofs *zfs;
@@ -165,6 +168,7 @@ struct zerofs_file
   uint16_t pos;
   uint8_t type;
   uint32_t size;
+  uint8_t flags;
 };
 
 #endif
@@ -331,7 +335,7 @@ static inline int zerofs_get_type(const char *extension)
 // if str is empty, decode the encoded name to str
 // otherwise encode str to encoded array
 // length is fixed 8 char and 6 byte encoded
-static void zerofs_name_codec(char *str, uint8_t *encoded, uint8_t *type)
+static int zerofs_name_codec(char *str, uint8_t *encoded, uint8_t *type)
 {
   static const char hexdigits[]="_-abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"; // 64 char
 
@@ -356,7 +360,8 @@ static void zerofs_name_codec(char *str, uint8_t *encoded, uint8_t *type)
     uint8_t x;
     char n[8];
     int j,i;
-    for(i=0;str[i]!='.';i++);  // find '.'
+    for(i=0;str[i]!='.'&&str[i]!='\0';i++);  // find '.'
+    if(str[i]=='\0'||i>8) return(ZEROFS_ERR_INVALIDNAME);
     if(NULL!=type) *type=zerofs_get_type(&str[i+1]);
     for(j=7,--i;i>=0;--i) n[j--]=str[i]; // copy basename to n[]
     for(;j>=0;--j) n[j]='_'; // fill rest of n[] with '_'
@@ -369,6 +374,7 @@ static void zerofs_name_codec(char *str, uint8_t *encoded, uint8_t *type)
     encoded[4]=str6bit(n[5]) | ((x&0x0c)<<4);
     encoded[5]=str6bit(n[6]) | ((x&0x03)<<6);
   }
+  return(0);
 }
 
 // look for available sector for data
@@ -459,25 +465,28 @@ int zerofs_open(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
   memset(fp, 0, sizeof(struct zerofs_file));
   fp->zfs=zfs;
   // 1.
-  zerofs_name_codec((char *)name, nm.name, &type);
-  nm.type_len=type<<24;
-  id=zerofs_namemap_find_name(zfs, &nm, type);
-  // 2.
-  if(id!=ZEROFS_MAP_EMPTY)
+  ret=zerofs_name_codec((char *)name, nm.name, &type);
+  if(0==ret)
   {
-    // 3.
-    sc=zfs->superblock->namemap[id].first_sector;
-    of=zfs->superblock->namemap[id].first_offset;
-    fp->pos=of;
-    // 4.
-    fp->sector=sc;
-    fp->id=id;
-    fp->mode=ZEROFS_MODE_READ_ONLY;
-    fp->size=ZEROFS_NM_GET_SIZE(&zfs->superblock->namemap[id]);
-    fp->type=ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id]);
-    ret=0;
+    nm.type_len=type<<24;
+    id=zerofs_namemap_find_name(zfs, &nm, type);
+    // 2.
+    if(id!=ZEROFS_MAP_EMPTY)
+    {
+      // 3.
+      sc=zfs->superblock->namemap[id].first_sector;
+      of=zfs->superblock->namemap[id].first_offset;
+      fp->pos=of;
+      // 4.
+      fp->sector=sc;
+      fp->id=id;
+      fp->mode=ZEROFS_MODE_READ_ONLY;
+      fp->size=ZEROFS_NM_GET_SIZE(&zfs->superblock->namemap[id]);
+      fp->type=ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id]);
+      ret=0;
+    }
+    else ret=ZEROFS_ERR_NOTFOUND;
   }
-  else ret=ZEROFS_ERR_NOTFOUND;
 
   return(ret);
 }
@@ -566,10 +575,13 @@ int zerofs_delete(struct zerofs *zfs, const char *name)
   if(!zerofs_is_readonly_mode(zfs))
   {
     // 1.
-    zerofs_name_codec((char *)name, nm.name, &type);
-    nm.type_len=type<<24;
-    id=zerofs_namemap_find_name(zfs, &nm, type);
-    ret=zerofs_delete_by_id(zfs, id);
+    ret=zerofs_name_codec((char *)name, nm.name, &type);
+    if(0==ret)
+    {
+      nm.type_len=type<<24;
+      id=zerofs_namemap_find_name(zfs, &nm, type);
+      ret=zerofs_delete_by_id(zfs, id);
+    }
   }
   else ret=ZEROFS_ERR_READMODE;
   
@@ -615,25 +627,30 @@ int zerofs_create(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
     {
       // 2 <-- handled in zerofs_namemap_find_slot()
       // 3
-      zerofs_name_codec((char *)name, nm.name, &fp->type);
-      // 4
-      if(zfs->meta.last_written_len>0 && zfs->meta.last_written_len<ZEROFS_FLASH_SECTOR_SIZE)
+      ret=zerofs_name_codec((char *)name, nm.name, &fp->type);
+      if(0==ret)
       {
-        // 4.a)
-        nm.first_sector=fp->sector=zfs->meta.last_written;
-        nm.first_offset=fp->pos=zfs->meta.last_written_len;
-      }
-      else
-      {
-        // 4.b)
-        int s=zerofs_find_free_block(zfs); //HURKA
-        if(s>=0)
+        // 4
+        if(zfs->meta.last_written_len>0 && zfs->meta.last_written_len<ZEROFS_FLASH_SECTOR_SIZE)
         {
-          nm.first_sector=fp->sector=(uint16_t)s;
-          nm.first_offset=0;
-          fp->pos=0;
+          // 4.0 set nomore flag to prevent multiple starter files in the same sector
+          fp->flags|=ZEROFS_FILE_NOMORE;
+          // 4.a)
+          nm.first_sector=fp->sector=zfs->meta.last_written;
+          nm.first_offset=fp->pos=zfs->meta.last_written_len;
         }
-        else ret=ZEROFS_ERR_NOSPACE;
+        else
+        {
+          // 4.b)
+          int s=zerofs_find_free_block(zfs); //HURKA
+          if(s>=0)
+          {
+            nm.first_sector=fp->sector=(uint16_t)s;
+            nm.first_offset=0;
+            fp->pos=0;
+          }
+          else ret=ZEROFS_ERR_NOSPACE;
+        }
       }
       if(ret==0)
       {
@@ -674,6 +691,7 @@ int zerofs_close(struct zerofs_file *fp)
     uint16_t addr=((fp->id)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap) + offsetof(struct zerofs_namemap, type_len);
 
     zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + addr, (uint8_t *)&type_len, sizeof(type_len));
+    if( (fp->flags&ZEROFS_FILE_NOMORE)!=0 ) zfs->meta.last_written_len=0;
   }
   fp->mode=ZEROFS_MODE_CLOSED;
 
@@ -777,65 +795,68 @@ int zerofs_append(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
   {
     memset(fp, 0, sizeof(struct zerofs_file));
     fp->zfs=zfs;
-    zerofs_name_codec((char *)name, nm.name, &fp->type);
-    nm.type_len=fp->type<<24;
-    id=zerofs_namemap_find_name(zfs, &nm, fp->type);
-    if(ZEROFS_MAP_EMPTY!=id)
+    ret=zerofs_name_codec((char *)name, nm.name, &fp->type);
+    if(0==ret)
     {
-      // find a new name slot
-      ni=zerofs_namemap_find_slot(zfs);
-      if(ni>=0)
+      nm.type_len=fp->type<<24;
+      id=zerofs_namemap_find_name(zfs, &nm, fp->type);
+      if(ZEROFS_MAP_EMPTY!=id)
       {
-        sm=(uint8_t *)ZEROFS_SECTOR_MAP(fp->zfs);
-        // copy existing namemap entry
-        nm.first_sector=zfs->superblock->namemap[id].first_sector;
-        nm.first_offset=zfs->superblock->namemap[id].first_offset;
-        nm.type_len=zfs->superblock->namemap[id].type_len;
-        // set size
-        fp->size=ZEROFS_NM_GET_SIZE(&zfs->superblock->namemap[id]);
-        // set pos
-        fp->pos=(fp->size+nm.first_offset) % ZEROFS_FLASH_SECTOR_SIZE;
-        // search the last sector
-        pos=fp->size;
-        dec=nm.first_offset;
-        sec=nm.first_sector;
-        do
+        // find a new name slot
+        ni=zerofs_namemap_find_slot(zfs);
+        if(ni>=0)
         {
-          for(i=0; id!=sm[(i+sec)%ZEROFS_FLASH_SECTOR_SIZE] && i<ZEROFS_NUMBER_OF_SECTORS; i++);
-          if(i>=ZEROFS_NUMBER_OF_SECTORS) { ret=ZEROFS_ERR_OVERFLOW; break; }
-          sec=(i+sec)%ZEROFS_FLASH_SECTOR_SIZE;
-          pos-=dec;
-          dec=ZEROFS_FLASH_SECTOR_SIZE;
-        } while(pos>0);
-        // allocate new sector if needed
-        fp->sector=sec;
-        if(0==fp->pos)
-        {
-          int s=zerofs_find_free_block(zfs); //HURKA
-          if(s>=0)
+          sm=(uint8_t *)ZEROFS_SECTOR_MAP(fp->zfs);
+          // copy existing namemap entry
+          nm.first_sector=zfs->superblock->namemap[id].first_sector;
+          nm.first_offset=zfs->superblock->namemap[id].first_offset;
+          nm.type_len=zfs->superblock->namemap[id].type_len;
+          // set size
+          fp->size=ZEROFS_NM_GET_SIZE(&zfs->superblock->namemap[id]);
+          // set pos
+          fp->pos=(fp->size+nm.first_offset) % ZEROFS_FLASH_SECTOR_SIZE;
+          // search the last sector
+          pos=fp->size;
+          dec=nm.first_offset;
+          sec=nm.first_sector;
+          do
           {
-            fp->sector=(uint16_t)s;
-            sm[s]=ni;
+            for(i=0; id!=sm[(i+sec)%ZEROFS_FLASH_SECTOR_SIZE] && i<ZEROFS_NUMBER_OF_SECTORS; i++);
+            if(i>=ZEROFS_NUMBER_OF_SECTORS) { ret=ZEROFS_ERR_OVERFLOW; break; }
+            sec=(i+sec)%ZEROFS_FLASH_SECTOR_SIZE;
+            pos-=dec;
+            dec=ZEROFS_FLASH_SECTOR_SIZE;
+          } while(pos>0);
+          // allocate new sector if needed
+          fp->sector=sec;
+          if(0==fp->pos)
+          {
+            int s=zerofs_find_free_block(zfs); //HURKA
+            if(s>=0)
+            {
+              fp->sector=(uint16_t)s;
+              sm[s]=ni;
+            }
+            else ret=ZEROFS_ERR_NOSPACE;
           }
-          else ret=ZEROFS_ERR_NOSPACE;
+          if(0==ret)
+          {
+            // rename id in map
+            for(i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++) if(sm[i]==id) sm[i]=ni;
+            // flash new namemap entry
+            zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + ((ni)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap), (uint8_t *)&nm, offsetof(struct zerofs_namemap, type_len) );
+            // delete old namemap entry
+            uint32_t addr = (id*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap);
+            zfs->fls->fls_write(zfs->fls->super_ud, addr+(zfs->bank*ZEROFS_SUPER_SECTOR_SIZE), buf, sizeof(buf));
+            // set new id in opened fp
+            fp->id=ni;
+            fp->mode=ZEROFS_MODE_WRITE_ONLY;
+          }
         }
-        if(0==ret)
-        {
-          // rename id in map
-          for(i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++) if(sm[i]==id) sm[i]=ni;
-          // flash new namemap entry
-          zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + ((ni)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap), (uint8_t *)&nm, offsetof(struct zerofs_namemap, type_len) );
-          // delete old namemap entry
-          uint32_t addr = (id*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap);
-          zfs->fls->fls_write(zfs->fls->super_ud, addr+(zfs->bank*ZEROFS_SUPER_SECTOR_SIZE), buf, sizeof(buf));
-          // set new id in opened fp
-          fp->id=ni;
-          fp->mode=ZEROFS_MODE_WRITE_ONLY;
-        }
+        else ret=ZEROFS_ERR_MAXFILES;
       }
-      else ret=ZEROFS_ERR_MAXFILES;
+      else ret=ZEROFS_ERR_NOTFOUND;
     }
-    else ret=ZEROFS_ERR_NOTFOUND;
   }
   else ret=ZEROFS_ERR_READMODE;
 
@@ -915,6 +936,8 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
       // 2.
       if(fp->pos>=ZEROFS_FLASH_SECTOR_SIZE)
       {
+        // 2. remove nomore flag to let new files to start here
+        fp->flags&=~ZEROFS_FILE_NOMORE;
         // 2.a.
         int s=zerofs_find_free_block(zfs);
         if(s>=0)
