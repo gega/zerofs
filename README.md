@@ -13,7 +13,7 @@ Most embedded filesystems are generalists: they sacrifice RAM, flash, and CPU ti
 zerofs is a specialist. It focuses on **devices with distinct read/write phases**, delivering:
 
 * Minimal RAM usage
-  - less than 100 bytes in READ mode
+  - less than 200 bytes in READ mode
   - ~1K in WRITE mode
 * Predictable behavior
 * Simplified flash management
@@ -68,11 +68,11 @@ This mode separation allows deterministic memory usage and faster access with mi
 
 ### zerofs
 
-[▶️ Recording](https://asciinema.org/a/XXMliaC3RemByzUO1Z5Q1EsBN)
+[![asciicast](https://asciinema.org/a/XXMliaC3RemByzUO1Z5Q1EsBN.svg)](https://asciinema.org/a/XXMliaC3RemByzUO1Z5Q1EsBN)
 
 ### LittleFS (for comparison)
 
-[▶️ Recording](https://asciinema.org/a/M15Q0NelQnfHv3SEn3EnuyonZ)
+[![asciicast](https://asciinema.org/a/M15Q0NelQnfHv3SEn3EnuyonZ.svg)](https://asciinema.org/a/M15Q0NelQnfHv3SEn3EnuyonZ)
 
 Under the same workload, zerofs performs **about half the flash operations** of LittleFS.
 LittleFS provides more features and flexibility, but for certain patterns, zerofs offers far better **RAM and speed efficiency**.
@@ -137,6 +137,7 @@ All functions return `0` on success or a negative error code on failure.
 #define ZEROFS_ERR_ARG        (-7)  // Invalid argument
 #define ZEROFS_ERR_WRITEMODE  (-8)  // Operation not allowed in WRITE mode
 #define ZEROFS_ERR_OVERFLOW   (-9)  // Seek/write overflow
+#define ZEROFS_ERR_BADSECTOR (-10)  // Bad sector detected
 ```
 
 ---
@@ -267,3 +268,7 @@ int zerofs_background_erase(struct zerofs *zfs);
 
 Performs background flash erases while in **READ mode**.
 Does not block reads, but must complete before switching to WRITE mode.
+
+# Third-party components
+
+LittleFS v2.11.2 and Lua v5.4.8 are included here to make sure build would succeed.
