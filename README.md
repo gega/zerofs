@@ -82,7 +82,8 @@ LittleFS provides more features and flexibility, but for certain patterns, zerof
 | littlefs | 86772.4 ms |
 | zerofs   | 44204.2 ms |
 
-*Note: measurements based on the timings of nRF52 series and the BY25Q32ES SPI flash IC.*
+*Note1: measurements based on the timings of nRF52 series and the BY25Q32ES SPI flash IC.*
+*Note2: LittleFS is configured to use similar amount of RAM what zerofs needs.*
 
 ---
 
