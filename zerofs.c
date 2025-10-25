@@ -1,5 +1,3 @@
-///usr/bin/env ccache gcc -Wall -O1 "$0" -lcurses -o /tmp/a -lm && /tmp/a "$@"; exit
-//usr/bin/gcc -Wall -o zerofs zerofs.c -lcurses
 #include <stdio.h>
 #include <unistd.h>
 #include <stdint.h>
