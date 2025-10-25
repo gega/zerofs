@@ -23,6 +23,20 @@ Ideal for battery-backed systems and devices where you know the exact access pat
 
 ---
 
+## What
+
+| file       | purpose                                |
+|------------|----------------------------------------| 
+| zerofs.h   | the filesystem itself                  |
+| flash.h    | flash simulation header                |
+| flash.c    | flash simulation implementation        |
+| test.h     | test related constants and definitions |
+| zerofs.c   | lua test runner for zerofs backend     |
+| littlefs.c | lua test runner for LittleFS backend   |
+| test1.lua  | lua test script                        |
+
+---
+
 ## Features
 
 * ~1 KB RAM usage total
