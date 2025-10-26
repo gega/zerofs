@@ -4,6 +4,7 @@
 It’s made for systems that *don’t behave like general-purpose computers* — for example, a sensor that occasionally logs data but spends most of its time reading back those files.
 
 zerofs optimized exactly for this specific usage pattern. No directories, no journaling, no heap allocations, no power-failure recovery. Just deterministic, low-memory file access with full flash utilization. Data flash sectors contains no administrative data, just the payload. The superblock contains every metadata which besides in a separate flash area.
+Zerofs optimized for relative large files, small files can cause wasted space as one flash block can contain only two files.
 
 *NOTE: Zerofs should be used only for battery powered device when the power failure is predictable.*
 

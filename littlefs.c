@@ -505,7 +505,7 @@ static int l_verify(lua_State *L)
                     int i;
                     for(i=0;i<len;i++) if(data[i]!=data2[i]) break;
                     if(i>=len) { st=0; CONSOLE(&conlog, "%s() '%s' VERIFIED OK\n", __FUNCTION__, name); }
-                    else CONSOLE(&conlog, "ERROR %s() '%s' differ at char %d\n", __FUNCTION__, name, i);
+                    else { st=-1; CONSOLE(&conlog, "ERROR %s() '%s' differ at char %d\n", __FUNCTION__, name, i); }
                   }
                   else CONSOLE(&conlog, "ERROR %s() zerofs_read error: %d\n", __FUNCTION__, st);
                   lfs_file_close(&lfs, &fp);

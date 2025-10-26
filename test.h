@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-#define LOG_SIZE_LINES (25000)
+#define LOG_SIZE_LINES (2500000)
 
 #define COLOR_SEED (5564)
 
