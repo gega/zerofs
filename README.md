@@ -37,6 +37,7 @@ Ideal for battery-backed systems and devices where you know the exact access pat
 | zerofs.c   | lua test runner for zerofs backend     |
 | littlefs.c | lua test runner for LittleFS backend   |
 | test1.lua  | lua test script                        |
+| test2.lua  | lua stress test                        |
 
 ---
 
