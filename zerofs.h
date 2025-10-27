@@ -237,7 +237,7 @@ static void zerofs_repack_superblock(struct zerofs *zfs)
     else if(ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id])==0||ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id])>=ARRAY_SIZE(zerofs_extensions)) valid=0;
     if(!valid)
     {
-      // id 'i' deleted, decrement all larger ids in sector_map
+      // id 'id' deleted, decrement all larger ids in sector_map
       for(j=0;j<ZEROFS_NUMBER_OF_SECTORS;j++) if(zfs->sector_map[j]<ZEROFS_MAP_BAD&&zfs->sector_map[j]>(id-of)) --zfs->sector_map[j];
       of++;
     }
@@ -251,7 +251,7 @@ static void zerofs_repack_superblock(struct zerofs *zfs)
     }
   }
   // update the free slot for the next namemap entry
-  zfs->last_namemap_id=ni;
+  zfs->last_namemap_id=ni+1;
   // program the updated RAM sector map
   zfs->fls->fls_write(zfs->fls->super_ud, nb*ZEROFS_SUPER_SECTOR_SIZE, zfs->sector_map, sizeof(zfs->superblock->sector_map));
   // copy the metadata fields from RAM if present
@@ -383,17 +383,19 @@ static int zerofs_find_free_block(struct zerofs *zfs)
   int ret=-1;
   int i,fre=-1;
   const uint8_t *sm;
+  sector_t sec;
 
   assert(zfs);
 
   sm=ZEROFS_SECTOR_MAP(zfs);
   for(i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++)
   {
-    if(sm[ZEROFS_BLOCK(zfs, i)]==ZEROFS_MAP_ERASED) break;
-    if(fre<0&&sm[ZEROFS_BLOCK(zfs, i)]==ZEROFS_MAP_EMPTY) fre=i;
+    sec=ZEROFS_BLOCK(zfs, i);
+    if(sm[sec]==ZEROFS_MAP_ERASED) break;
+    if(fre<0&&sm[sec]==ZEROFS_MAP_EMPTY) fre=sec;
   }
-  if(i<ZEROFS_NUMBER_OF_SECTORS) ret=ZEROFS_BLOCK(zfs, i);
-  else if(fre>=0) ret=ZEROFS_BLOCK(zfs, fre);
+  if(i<ZEROFS_NUMBER_OF_SECTORS) ret=sec;
+  else if(fre>=0) ret=fre;
   
   return(ret);
 }
@@ -439,15 +441,15 @@ static uint8_t zerofs_namemap_find_name(struct zerofs *zfs, struct zerofs_namema
 }
 
 // look for the given first_sector in the namemap (ignores other field in nm)
-static uint8_t zerofs_namemap_find_sector(struct zerofs *zfs, struct zerofs_namemap *nm)
+static uint8_t zerofs_namemap_find_sector(struct zerofs *zfs, sector_t first)
 {
   uint8_t ret=ZEROFS_MAP_EMPTY;
   int i;
   
-  assert(zfs&&nm);
+  if(NULL==zfs) return(ret);
   
-  for(i=0;i<ZEROFS_MAX_NUMBER_OF_FILES;i++) if(nm->first_sector==zfs->superblock->namemap[i].first_sector) break;
-  if(nm->first_sector==zfs->superblock->namemap[i].first_sector) ret=i;
+  for(i=0;i<ZEROFS_MAX_NUMBER_OF_FILES;i++) if(first==zfs->superblock->namemap[i].first_sector) break;
+  if(first==zfs->superblock->namemap[i].first_sector) ret=i;
 
   return(ret);
 }
@@ -560,11 +562,11 @@ static int zerofs_delete_by_id(struct zerofs *zfs, int id)
   {
     // 3.
     sm=(uint8_t *)ZEROFS_SECTOR_MAP(zfs); // valid because we are in write mode, superblock is in RAM
+    sector_t from=zfs->superblock->namemap[id].first_sector;
     // 4.
     uint32_t addr = (id*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap);
     zfs->fls->fls_write(zfs->fls->super_ud, addr+(zfs->bank*ZEROFS_SUPER_SECTOR_SIZE), buf, sizeof(buf));
     // 6.
-    sector_t from=zfs->superblock->namemap[id].first_sector;
     for(last=-1,i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++)
     {
       sec=(i+from)%ZEROFS_NUMBER_OF_SECTORS;
@@ -577,10 +579,7 @@ static int zerofs_delete_by_id(struct zerofs *zfs, int id)
     // 7.
     if(last>=0)
     {
-      struct zerofs_namemap nm;
-      nm.first_sector=last;
-      id=zerofs_namemap_find_sector(zfs, &nm);
-      if(id!=ZEROFS_MAP_EMPTY) sm[last]=id;
+      sm[last]=zerofs_namemap_find_sector(zfs, last);
     }
   }
   else ret=ZEROFS_ERR_NOTFOUND;

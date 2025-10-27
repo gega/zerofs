@@ -10,12 +10,12 @@ local FILES = {
   "f524288.csv", "f786432.csv", "f1048576.csv", "f1572864.csv",
   "f2097152.csv", "f3145728.csv", "f3670016.csv"
 }
-local ITERATIONS = 6
+local ITERATIONS = 12
 local CHUNK_SIZE = 300000
 local SPEED_FACTOR = 0
 local DELAY_MS = 0
 local DELETE_RATIO = 0.3   -- fraction of existing files to delete when full
-local SEED = 34343;
+local SEED = 34341;
 -- ----------------------------------------------------------------
 
 math.randomseed(SEED)

@@ -2,10 +2,30 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
+#include <math.h>
 
 #include "flash.h"
 #include "test.h"
 
+
+
+static double stddev(int *arr, int n)
+{
+    if (n <= 1) return 0.0;
+
+    double sum = 0.0;
+    for (int i = 0; i < n; i++) sum += arr[i];
+    double mean = sum / n;
+
+    double sq_diff = 0.0;
+    for (int i = 0; i < n; i++)
+    {
+        double diff = arr[i] - mean;
+        sq_diff += diff * diff;
+    }
+
+    return sqrt(sq_diff / n);
+}
 
 
 int flash_area_open(int id, struct flash_area *fa, const struct flash_area *fas)
@@ -20,6 +40,8 @@ int flash_area_open(int id, struct flash_area *fa, const struct flash_area *fas)
         {
             memcpy(fa, &fas[i], sizeof(struct flash_area));
             fa->open = 1;
+            int *wear = calloc(fa->prop.size/fa->prop.sector_size,sizeof(int));
+            fa->wear = wear;
             ret = 0;
             CONSOLE(&conlog, "%s() FLASH AREA OPEN %d\n", __FUNCTION__, id);
         }
@@ -32,6 +54,7 @@ int flash_area_open(int id, struct flash_area *fa, const struct flash_area *fas)
 int flash_area_write(struct flash_area *fa, uint32_t addr, const uint8_t *data, uint32_t len)
 {
     int ret = -1;
+    uint32_t i;
 
     if(NULL != fa && fa->open)
     {
@@ -39,9 +62,11 @@ int flash_area_write(struct flash_area *fa, uint32_t addr, const uint8_t *data, 
         {
             if((addr + len) <= fa->size)
             {
-                for(uint32_t i = 0; i < len; i++) fa->flash[addr + i] &= data[i];
+                for(i = 0; i < len; i++) if(fa->flash[addr + i] != 0xff) break;
+                if(i < len) CONSOLE(&conlog, "%s() FLASH %d WARNING WRITING TO DIRTY AREA SECTOR %03x ADDR 0x%x\n", __FUNCTION__, fa->id, (addr/fa->prop.sector_size), addr);
+                for(i = 0; i < len; i++) fa->flash[addr + i] &= data[i];
                 ret = len;
-                CONSOLE(&conlog, "%s() FLASH %d WRITE 0x%x %d bytes\n", __FUNCTION__, fa->id, addr, len);
+                CONSOLE(&conlog, "%s() FLASH %d WRITE SECTOR %03x ADDR 0x%x %d bytes\n", __FUNCTION__, fa->id, (addr/fa->prop.sector_size), addr, len);
                 // delay
                 double delay_us = (fa->prop.t_comm_byte_us * len) + (fa->prop.t_byte_first_us + (len - 1) * fa->prop.t_byte_us);
                 fa->elapsed+=delay_us;
@@ -92,7 +117,8 @@ int flash_area_erase(struct flash_area *fa, uint32_t addr, uint32_t len)
             {
                 memset(&fa->flash[addr], 0xff, len);
                 ret = len;
-                CONSOLE(&conlog, "%s() FLASH %d ERASE SECTOR 0x%04x\n", __FUNCTION__, fa->id, (addr / 4096));
+                fa->wear[(addr / fa->prop.sector_size)]++;
+                CONSOLE(&conlog, "%s() FLASH %d ERASE SECTOR %03x\n", __FUNCTION__, fa->id, (addr / (fa->prop.sector_size)));
                 double delay_us = fa->prop.t_sector_erase_us;
                 fa->elapsed+=delay_us;
                 usleep((long)(delay_us*simulation_factor));
@@ -111,6 +137,23 @@ int flash_area_close(struct flash_area *fa)
     if(NULL != fa && fa->open)
     {
         CONSOLE(&conlog, "%s() FLASH AREA CLOSE %d elapsed = %.1f ms\n", __FUNCTION__, fa->id, fa->elapsed/1000.0);
+        if(NULL!=fa->wear)
+        {
+            double sum=0.0, ave=0.0;
+            int max, min, i;
+            int N=(fa->prop.size/fa->prop.sector_size);
+            min=fa->wear[0];
+            max=fa->wear[0];
+            for(i=0;i<N;i++)
+            {
+              sum+=fa->wear[i];
+              if(fa->wear[i]<min) min=fa->wear[i];
+              if(fa->wear[i]>max) max=fa->wear[i];
+            }
+            ave=sum/N;
+            CONSOLE(&conlog,"avg=%7.2f stddev=%7.2f min=%d max=%d\n",ave, stddev(fa->wear, N), min, max);
+            free(fa->wear);
+        }
         fa->elapsed=0.0;
         fa->open=0;
     }

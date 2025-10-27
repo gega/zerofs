@@ -52,6 +52,7 @@ static struct flash_area fas[] =
   {
     FLASH_AREA_NFFS,
     0,
+    NULL,
     mem_flash,
     sizeof(mem_flash),
     1,
@@ -65,13 +66,14 @@ static struct flash_area fas[] =
   {
     FLASH_AREA_SUPER,
     0,
+    NULL,
     mem_super,
     sizeof(mem_super),
     0,
     0.0,
     { sizeof(mem_super), 4096, 4, 80000.0, 67.5/4*4096, 67.5/4, 67.5/4, 0.0 } // random public sources
   },
-  { -1, 0, NULL, 0, 0, 0.0, {0} }
+  { -1, 0, NULL, NULL, 0, 0, 0.0, {0} }
 };
 static struct flash_area fa[2];
 

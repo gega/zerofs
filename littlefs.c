@@ -61,13 +61,14 @@ static struct flash_area fas[]=
   {
     FLASH_AREA_NFFS,
     0,
+    NULL,
     mem_flash,
     sizeof(mem_flash),
     1,
     0.0,
     flash_prop
   },
-  { -1, 0, NULL, 0, 0, 0.0, {0} }
+  { -1, 0, NULL, NULL, 0, 0, 0.0, {0} }
 };
 
 #define LFS_NUMBER_OF_SECTORS (1024)

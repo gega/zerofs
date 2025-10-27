@@ -22,6 +22,7 @@ struct flash_area
 {
   int id;
   int open;
+  int *wear;
   uint8_t *flash;
   uint32_t size;
   int device;
