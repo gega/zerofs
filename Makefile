@@ -1,6 +1,6 @@
 #
 
-all:		zerofs littlefs
+all:		zerofs littlefs data/.gen
 
 zerofs:		zerofs.c zerofs.h lua/src/liblua.a test.h flash.h flash.c
 		gcc -g -Ilua/src -Llua/src -Wall -o zerofs zerofs.c flash.c -lcurses -llua -lm
@@ -14,8 +14,12 @@ lua/src/liblua.a:
 lfs/liblfs.a:
 		make CFLAGS="-DLFS_NO_ERROR" -C lfs/
 
+data/.gen:	testfilesizes.lua
+		./gendata.sh
 
 clean:
 		rm -f zerofs littlefs *.o
 		make -C lfs/ clean
 		make -C lua/ clean
+		rm -f data/f*csv
+		rm -f data/.gen

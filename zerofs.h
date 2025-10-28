@@ -19,6 +19,10 @@
 #define ZEROFS_SUPER_SECTOR_SIZE (4096)
 #endif
 
+#ifndef ZEROFS_SUPER_WRITE_GRANULARITY
+#define ZEROFS_SUPER_WRITE_GRANULARITY (4)
+#endif
+
 #ifndef ZEROFS_EXTENSION_LIST
 #define ZEROFS_EXTENSION_LIST \
     X("bin")                 \
@@ -118,6 +122,8 @@ struct zerofs_namemap
   uint16_t reserved;
   uint32_t type_len;            // type and length combined: MSB is type 3 LSB are length
 };
+
+static_assert(ZEROFS_SUPER_WRITE_GRANULARITY<=sizeof(struct zerofs_namemap), "Superblock flash write granularity shouldn't be larger than sizeof(struct zerofs_namemap)");
 
 #define ZEROFS_NM_GET_TYPE(nm) ((nm)->type_len>>24)
 #define ZEROFS_NM_GET_SIZE(nm) ((nm)->type_len&0xffffff)
@@ -234,7 +240,7 @@ static void zerofs_repack_superblock(struct zerofs *zfs)
     valid=1;
     if(memcmp(&zfs->superblock->namemap[id].name, zero, sizeof(zero))==0) valid=0;
     else if(ZEROFS_NM_GET_SIZE(&zfs->superblock->namemap[id])==0) valid=0;
-    else if(ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id])==0||ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id])>=ARRAY_SIZE(zerofs_extensions)) valid=0;
+    else if(zfs->superblock->namemap[id].type_len==0xffffffff) valid=0;
     if(!valid)
     {
       // id 'id' deleted, decrement all larger ids in sector_map
@@ -715,7 +721,9 @@ int zerofs_close(struct zerofs_file *fp)
     uint16_t addr=((fp->id)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap) + offsetof(struct zerofs_namemap, type_len);
 
     zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + addr, (uint8_t *)&type_len, sizeof(type_len));
+    #if 0
     if( (fp->flags&ZEROFS_FILE_NOMORE)!=0 ) zfs->meta.last_written_len=0;
+    #endif
   }
   fp->mode=ZEROFS_MODE_CLOSED;
 
