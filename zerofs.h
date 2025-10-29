@@ -23,6 +23,10 @@
 #define ZEROFS_SUPER_WRITE_GRANULARITY (4)
 #endif
 
+#ifndef ZEROFS_VERIFY
+#define ZEROFS_VERIFY (0)
+#endif
+
 #ifndef ZEROFS_EXTENSION_LIST
 #define ZEROFS_EXTENSION_LIST \
     X("bin")                 \
@@ -39,7 +43,7 @@
 
 
 #define ZEROFS_FILENAME_MAX (12)
-#define ZEROFS_MAX_FILES (0xfd)
+#define ZEROFS_MAX_FILES (0xfc)
 
 static_assert(ZEROFS_FLASH_SECTOR_SIZE<=0xffff,"Sector size must be fit in 16 bit");
 static_assert(ZEROFS_MAX_NUMBER_OF_FILES<=ZEROFS_MAX_FILES,"Max number of files with this superblock structure is 0xfd");
@@ -155,8 +159,10 @@ struct zerofs
   uint8_t last_namemap_id;			// on boot look for the last non-FF namemap entry
   uint8_t bank;
   uint8_t background;                           // TODO: combine this and bank to a flags field
+#if (ZEROFS_VERIFY!=0)
   uint8_t verify;
   uint8_t verify_cnt;
+#endif
   struct zerofs_metadata meta;
   const struct zerofs_flash_access *fls;	// flash access struct in rom
 };
@@ -182,7 +188,7 @@ struct zerofs_file
 
 #ifdef ZEROFS_IMPLEMENTATION
 
-int zerofs_init(struct zerofs *zfs, uint8_t verify, const struct zerofs_flash_access *fls_acc)
+int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
 {
   int i;
 
@@ -192,7 +198,9 @@ int zerofs_init(struct zerofs *zfs, uint8_t verify, const struct zerofs_flash_ac
   zfs->bank=0;
   zfs->fls=fls_acc;
   zfs->superblock=(const struct zerofs_superblock *)(zfs->fls->superblock_banks + (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE));
-  zfs->verify_cnt=zfs->verify=verify;
+#if (ZEROFS_VERIFY!=0)
+  zfs->verify_cnt=zfs->verify=ZEROFS_VERIFY;
+#endif
   zfs->sector_map=NULL;
   zfs->meta.last_written=zfs->superblock->meta.last_written;
   zfs->meta.last_written_len=zfs->superblock->meta.last_written_len;
@@ -432,16 +440,17 @@ static uint8_t zerofs_namemap_find_name(struct zerofs *zfs, struct zerofs_namema
   uint8_t ret=ZEROFS_MAP_EMPTY;
   uint8_t *p;
   unsigned long offs;
-  
-  assert(zfs&&nm);
-  
+
+  if(NULL==zfs||NULL==nm) return(ret);
+
   p=(uint8_t *)zfs->superblock->namemap;
   do
   {
     p=memmem(p, sizeof(zfs->superblock->namemap), nm->name, sizeof(nm->name));
     offs=(unsigned long)(p-(uint8_t *)zfs->superblock->namemap);
+    ret=(uint8_t)(offs / sizeof(struct zerofs_namemap));
   } while(p!=NULL && ZEROFS_NM_GET_TYPE(&nm[ret])!=type && ( (offs % sizeof(struct zerofs_namemap)) != 0));
-  if(p!=NULL) ret=(uint8_t)(offs / sizeof(struct zerofs_namemap));
+  if(p==NULL) ret=ZEROFS_MAP_EMPTY;
 
   return(ret);
 }
@@ -773,6 +782,7 @@ int zerofs_seek(struct zerofs_file *fp, int32_t pos)
   const uint8_t *sm;
   int32_t dec;
   sector_t sec;
+  uint16_t first_block_fill;
 
   if(NULL==fp) return(ZEROFS_ERR_ARG);
 
@@ -780,18 +790,18 @@ int zerofs_seek(struct zerofs_file *fp, int32_t pos)
   {
     if(ABS(pos)<fp->size)
     {
-      pos=( pos>=0 ? pos : fp->size-pos);
+      pos=( pos>=0 ? pos : fp->size+pos);
+      first_block_fill=ZEROFS_FLASH_SECTOR_SIZE-fp->zfs->superblock->namemap[fp->id].first_offset;
       sec=fp->zfs->superblock->namemap[fp->id].first_sector;
-      if(pos > fp->zfs->superblock->namemap[fp->id].first_offset)
+      if(pos > first_block_fill)
       {
         sm=ZEROFS_SECTOR_MAP(fp->zfs);
-        
-        dec=fp->zfs->superblock->namemap[fp->id].first_offset;
+        dec=first_block_fill;
         do
         {
-          for(i=0; fp->id!=sm[(i+sec)%ZEROFS_FLASH_SECTOR_SIZE] && i<ZEROFS_NUMBER_OF_SECTORS; i++);
+          for(i=0; fp->id!=sm[(i+sec)%ZEROFS_NUMBER_OF_SECTORS] && i<ZEROFS_NUMBER_OF_SECTORS; i++);
           if(i>=ZEROFS_NUMBER_OF_SECTORS) { ret=ZEROFS_ERR_OVERFLOW; break; }
-          sec=(i+sec)%ZEROFS_FLASH_SECTOR_SIZE;
+          sec=(i+sec)%ZEROFS_NUMBER_OF_SECTORS;
           pos-=dec;
           dec=ZEROFS_FLASH_SECTOR_SIZE;
         } while(pos>=ZEROFS_FLASH_SECTOR_SIZE);
@@ -801,7 +811,11 @@ int zerofs_seek(struct zerofs_file *fp, int32_t pos)
           fp->pos=pos;
         }
       }
-      else fp->pos=(uint16_t)pos;
+      else
+      {
+        fp->sector=sec;
+        fp->pos=pos;
+      }
     }
     else ret=ZEROFS_ERR_ARG;
   }
@@ -896,6 +910,7 @@ int zerofs_append(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
 }
 
 // https://github.com/hdtodd/CRC8-Library/blob/f81864daa56028d689d501dbc96d5aad98b7abdc/libcrc8.c#L114C1-L117C3
+#if (ZEROFS_VERIFY!=0)
 static uint8_t zerofs_crc8(uint8_t *msg, int len, uint8_t init)
 {
   static const uint8_t CRC8Table[256] =
@@ -916,6 +931,7 @@ static uint8_t zerofs_crc8(uint8_t *msg, int len, uint8_t init)
 
   return(init);
 };
+#endif
 
 /*
 int32_t zerofs_fs_write(struct zerofs_fp *fp, const uint8_t *buf, uint32_t len);        - write buffer to WO opened file pointer
@@ -949,6 +965,7 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
       if(l>0)
       {
         zfs->fls->fls_write(zfs->fls->data_ud, fp->sector*ZEROFS_FLASH_SECTOR_SIZE+fp->pos, buf, l);
+#if (ZEROFS_VERIFY!=0)
         if(zfs->verify>0&&--zfs->verify_cnt==0)
         {
           // verify required
@@ -961,6 +978,7 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
             return(ZEROFS_ERR_BADSECTOR);
           }
         }
+#endif
         len-=l;
         buf+=l;
         fp->pos+=l;

@@ -13,6 +13,7 @@
 
 
 extern double simulation_factor;
+extern int badblock;
 
 void draw_update(int wait, int umap);
 

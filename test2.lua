@@ -4,13 +4,15 @@ local m = require('zerofs')
 local TEST_DIR = "data"
 local SIZES = require("testfilesizes")
 local FILES = {};
-local ITERATIONS = 12
+local ITERATIONS = 22
 local CHUNK_SIZE = 2048
 local SPEED_FACTOR = 0
-local DELAY_MS = 350
+local DELAY_MS = 0
 local DELETE_RATIO = 0.45   -- fraction of existing files to delete when full
-local SEED = 5553;
+local SEED = 8839;
 -- ----------------------------------------------------------------
+
+m.badblock(false)
 
 math.randomseed(SEED)
 

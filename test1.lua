@@ -5,6 +5,7 @@ local chunk = 2000000;
 m.speed(0,250);
 m.setdir("data");
 m.setstep(false);
+m.badblock(false)
 
 m.setmode("write");
 st=m.write("frog.qla", chunk);

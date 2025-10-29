@@ -16,6 +16,7 @@ struct flash_prop
   double t_byte_first_us;
   double t_byte_us;
   double t_comm_byte_us;
+  int lifecycle;
 };
 
 struct flash_area

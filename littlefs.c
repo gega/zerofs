@@ -6,6 +6,7 @@
 #include <time.h>
 #include <libgen.h>
 
+#define _XOPEN_SOURCE_EXTENDED
 #include <ncurses.h>
 #include <lua.h>
 #include <lauxlib.h>
@@ -20,6 +21,8 @@
 static int quit=0;
 static int colors_supported=0;
 static int op_delay=0;
+static const wchar_t *colblocks[] = {L" ", L"_", L"▁", L"▂", L"▃", L"▄", L"▅", L"▆", L"▇", L"█"}; // 0-9
+
 
 #define INVALID_ID (0xfe)
 #define ERASED_ID (0xff)
@@ -253,6 +256,21 @@ static void draw_map(uint8_t *p_map, uint8_t *n_map, int size, int x, int y, int
         if(n_map[i] == ERASED_ID) str = "  ";
         else if(n_map[i] == INVALID_ID) str = "..";
         else snprintf(str, sizeof(buf), "%02x", n_map[i]);
+        {
+          // draw wear based on FLASH_ERASE_CYCLE
+          if(NULL!=fas[0].wear)
+          {
+            int w=fas[0].wear[i];
+            if(w>=0)
+            {
+              int b=(int)(w/(fas[0].prop.lifecycle/9.0));
+              if(b>9) b=9;
+              if(b<0) b=0;
+              mvaddwstr(y + yy + 2, x + xx + 5, colblocks[b]);
+            }
+            else str = "xx";
+          }
+        }
         if(p_map[i] != n_map[i])
         {
             attron(A_REVERSE);
@@ -600,6 +618,15 @@ static int l_setstep(lua_State *L)
     return((quit?luaL_error(L, "Interrupted"):0));
 }
 
+static int l_badblock(lua_State *L)
+{
+    int isbad = lua_isboolean(L, 1);
+    if (!isbad) return(luaL_error(L, "expected boolean"));
+    badblock = !!lua_toboolean(L, 1);
+    CONSOLE(&conlog,"%s() BADBLOCK SIMULATION %s\n",__FUNCTION__, (badblock?"ENABLED":"DISABLED"));
+    return((quit?luaL_error(L, "Interrupted"):0));
+}
+
 static int l_delete(lua_State *L)
 {
     const char *name = luaL_checkstring(L, 1);
@@ -650,6 +677,7 @@ static int luaopen_zerofslib(lua_State *L)
         { "setstep", l_setstep },
         { "getch", l_getch },
         { "assert", l_assert },
+        { "badblock", l_badblock },
         { NULL, NULL }
     };
     luaL_newlib(L, funcs);

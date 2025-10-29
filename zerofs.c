@@ -6,11 +6,13 @@
 #include <time.h>
 #include <libgen.h>
 
+#define _XOPEN_SOURCE_EXTENDED
 #include <ncurses.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
 #include <math.h>
+#include <locale.h>
 
 #include "test.h"
 #include "flash.h"
@@ -19,7 +21,7 @@
 
 static uint8_t ram_sector_map[1024];
 static int quit=0;
-
+static const wchar_t *colblocks[] = {L" ", L"_", L"▁", L"▂", L"▃", L"▄", L"▅", L"▆", L"▇", L"█"}; // 0-9
 
 ////////////////////////////////////////////
 
@@ -57,7 +59,7 @@ static struct flash_area fas[] =
     sizeof(mem_flash),
     1,
     0.0,
-    { sizeof(mem_flash), 4096, 1, 36000.0, 600.0, 30.0, 2.5, 1.0 } // based on BY25Q32ES datasheet, page is 256 bytes
+    { sizeof(mem_flash), 4096, 1, 36000.0, 600.0, 30.0, 2.5, 1.0, 100 } // based on BY25Q32ES datasheet, page is 256 bytes
   },
   // superblock area (fast MCU flash on nRF52832)
   // during erase and program, the cpu 
@@ -71,7 +73,7 @@ static struct flash_area fas[] =
     sizeof(mem_super),
     0,
     0.0,
-    { sizeof(mem_super), 4096, 4, 80000.0, 67.5/4*4096, 67.5/4, 67.5/4, 0.0 } // random public sources
+    { sizeof(mem_super), 4096, 4, 80000.0, 67.5/4*4096, 67.5/4, 67.5/4, 0.0, 100000 } // random public sources
   },
   { -1, 0, NULL, NULL, 0, 0, 0.0, {0} }
 };
@@ -97,7 +99,7 @@ int fls_erase(void *ud, uint32_t addr, uint32_t len)
     X("csv")                  \
     X("qla")                  \
     X("qli")
-
+#define ZEROFS_VERIFY (0)
 
 #define ZEROFS_IMPLEMENTATION
 #include "zerofs.h"
@@ -181,13 +183,28 @@ static void draw_map(uint8_t *p_map, uint8_t *n_map, int size, int x, int y, int
         str = buf;
         if(n_map[i] == ZEROFS_MAP_ERASED) str = "  ";
         else if(n_map[i] == ZEROFS_MAP_EMPTY) str = "..";
+        else if(n_map[i] == ZEROFS_MAP_BAD) str = "++";
         else snprintf(str, sizeof(buf), "%02x", n_map[i]);
+        {
+          // draw wear based on FLASH_ERASE_CYCLE
+          if(NULL!=fa[0].wear)
+          {
+            int w=fa[0].wear[i];
+            if(w>=0)
+            {
+              int b=(int)(w/(fa[0].prop.lifecycle/9.0));
+              if(b>9) b=9;
+              if(b<0) b=0;
+              mvaddwstr(y + yy + 2, x + xx + 5, colblocks[b]);
+            }
+          }
+        }
         if(p_map[i] == n_map[i])
         {
             attron(A_REVERSE);
         }
         set_color(n_map[i]);
-        mvprintw(y + yy + 2, x + xx + 6, str);
+        mvprintw (y + yy + 2, x + xx + 6, str);
         set_color(-1);
         if(p_map[i] == n_map[i])
         {
@@ -571,6 +588,15 @@ static int l_setstep(lua_State *L)
     return((quit?luaL_error(L, "Interrupted"):0));
 }
 
+static int l_badblock(lua_State *L)
+{
+    int isbad = lua_isboolean(L, 1);
+    if (!isbad) return(luaL_error(L, "expected boolean"));
+    badblock = !!lua_toboolean(L, 1);
+    CONSOLE(&conlog,"%s() BADBLOCK SIMULATION %s\n",__FUNCTION__, (badblock?"ENABLED":"DISABLED"));
+    return((quit?luaL_error(L, "Interrupted"):0));
+}
+
 static int l_delete(lua_State *L)
 {
     const char *name = luaL_checkstring(L, 1);
@@ -621,6 +647,7 @@ static int luaopen_zerofslib(lua_State *L)
         { "setstep", l_setstep },
         { "getch", l_getch },
         { "assert", l_assert },
+        { "badblock", l_badblock },
         { NULL, NULL }
     };
     luaL_newlib(L, funcs);
@@ -642,6 +669,7 @@ static lua_State *luainit(void)
     return (L);
 }
 
+
 int main(int argc, char **argv)
 {
     if(argc < 2)
@@ -649,6 +677,7 @@ int main(int argc, char **argv)
         printf("Usage: %s testfile.lua\n", argv[0]);
         exit(0);
     }
+
 
     CONSOLE(&conlog, "\nTEST %s %s STARTED AT %ld\n",argv[0],argv[1],time(NULL));
 
@@ -670,6 +699,7 @@ int main(int argc, char **argv)
 
     lua_State *L = luainit();
 
+    setlocale(LC_ALL, "");
     initscr();                  // Start ncurses mode
     noecho();                   // Don't echo typed chars
     curs_set(0);                // Hide the cursor
@@ -686,7 +716,7 @@ int main(int argc, char **argv)
 
     flash_area_open(FLASH_AREA_NFFS, &fa[0], &fas[0]);
     flash_area_open(FLASH_AREA_SUPER, &fa[1], &fas[1]);
-    zerofs_init(&zfs, 0, &fac);
+    zerofs_init(&zfs, &fac);
     zerofs_format(&zfs);
     
     draw_init=1;
