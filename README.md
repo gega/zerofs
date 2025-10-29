@@ -4,7 +4,6 @@
 It’s made for systems that *don’t behave like general-purpose computers* — for example, a sensor that occasionally logs data but spends most of its time reading back those files.
 
 zerofs optimized exactly for this specific usage pattern. No directories, no journaling, no heap allocations, no power-failure recovery. Just deterministic, low-memory file access with full flash utilization. Data flash sectors contains no administrative data, just the payload. The superblock contains every metadata which besides in a separate flash area.
-Zerofs optimized for relative large files, small files can cause wasted space as one flash block can contain only two files.
 
 *NOTE: Zerofs should be used only for battery powered device when the power failure is predictable.*
 
@@ -139,6 +138,12 @@ Perfect for debugging, testing workloads, or benchmarking behavior.
 
 // Sector size of superblock flash (usually MCU internal flash)
 #define ZEROFS_SUPER_SECTOR_SIZE (4096)
+
+// Superblock minimum write size in bytes (not enforced yet)
+#define ZEROFS_SUPER_WRITE_GRANULARITY (4)
+
+// Verify frequency, 0-off N-verify every Nth vrites
+#define ZEROFS_VERIFY (0)
 
 // Supported extensions (sorted, <255 total)
 #define ZEROFS_EXTENSION_LIST \
