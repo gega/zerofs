@@ -140,6 +140,12 @@ Perfect for debugging, testing workloads, or benchmarking behavior.
 // Sector size of superblock flash (usually MCU internal flash)
 #define ZEROFS_SUPER_SECTOR_SIZE (4096)
 
+// Superblock minimum write size in bytes (not enforced yet)
+#define ZEROFS_SUPER_WRITE_GRANULARITY (4)
+
+// Verify frequency, 0-off N-verify every Nth vrites
+#define ZEROFS_VERIFY (0)
+
 // Supported extensions (sorted, <255 total)
 #define ZEROFS_EXTENSION_LIST \
     X("bin")                 \
