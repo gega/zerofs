@@ -73,7 +73,7 @@ struct zerofs_flash_access
 {
   int (*fls_write)(void *ud, uint32_t addr, const uint8_t *data, uint32_t len);
   int (*fls_read)(void *ud, uint32_t addr, uint8_t *data, uint32_t len);
-  int (*fls_erase)(void *ud, uint32_t addr, uint32_t len);
+  int (*fls_erase)(void *ud, uint32_t addr, uint32_t len, int background);
   uint8_t *superblock_banks;
   void *data_ud;
   void *super_ud;
@@ -240,7 +240,7 @@ static void zerofs_repack_superblock(struct zerofs *zfs)
   if(NULL==zfs||zerofs_is_readonly_mode(zfs)) return;
   int nb=zfs->bank^1;
   // erase secondary superblock sector
-  zfs->fls->fls_erase(zfs->fls->super_ud, nb*ZEROFS_SUPER_SECTOR_SIZE, ZEROFS_SUPER_SECTOR_SIZE);
+  zfs->fls->fls_erase(zfs->fls->super_ud, nb*ZEROFS_SUPER_SECTOR_SIZE, ZEROFS_SUPER_SECTOR_SIZE, 0);
   // program the namemap and skip the deleted items
   addr = offsetof(struct zerofs_superblock, namemap);
   for(of=id=ni=0;id<=zfs->last_namemap_id;id++)
@@ -274,7 +274,7 @@ static void zerofs_repack_superblock(struct zerofs *zfs)
   addr=offsetof(struct zerofs_superblock, meta);
   zfs->fls->fls_write(zfs->fls->super_ud, addr+(nb*ZEROFS_SUPER_SECTOR_SIZE), (uint8_t *)&zfs->meta, sizeof(struct zerofs_metadata) );
   // if we reset the version, we erase the other superblock too
-  if(zfs->meta.version==ZEROFS_SUPERBLOCK_VERSION_MAX) zfs->fls->fls_erase(zfs->fls->super_ud, zfs->bank*ZEROFS_SUPER_SECTOR_SIZE, ZEROFS_SUPER_SECTOR_SIZE);
+  if(zfs->meta.version==ZEROFS_SUPERBLOCK_VERSION_MAX) zfs->fls->fls_erase(zfs->fls->super_ud, zfs->bank*ZEROFS_SUPER_SECTOR_SIZE, ZEROFS_SUPER_SECTOR_SIZE, 0);
   zfs->bank=nb;
   zfs->superblock=(const struct zerofs_superblock *)(zfs->fls->superblock_banks + (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE));
 }
@@ -310,8 +310,8 @@ int zerofs_format(struct zerofs *zfs)
   zfs->meta.last_written=0;
   zfs->meta.last_written_len=0;
   zfs->last_namemap_id=0;
-  zfs->fls->fls_erase(zfs->fls->super_ud, 0, ZEROFS_SUPER_SECTOR_SIZE);
-  zfs->fls->fls_erase(zfs->fls->super_ud, ZEROFS_SUPER_SECTOR_SIZE, ZEROFS_SUPER_SECTOR_SIZE);
+  zfs->fls->fls_erase(zfs->fls->super_ud, 0, ZEROFS_SUPER_SECTOR_SIZE, 0);
+  zfs->fls->fls_erase(zfs->fls->super_ud, ZEROFS_SUPER_SECTOR_SIZE, ZEROFS_SUPER_SECTOR_SIZE, 0);
 
   return(0);
 }
@@ -697,7 +697,7 @@ int zerofs_create(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
         uint8_t *sm=(uint8_t *)ZEROFS_SECTOR_MAP(zfs);
         if(ZEROFS_MAP_EMPTY==sm[fp->sector])
         {
-          zfs->fls->fls_erase(zfs->fls->data_ud, fp->sector*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE);
+          zfs->fls->fls_erase(zfs->fls->data_ud, fp->sector*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE, 0);
           sm[fp->sector]=ZEROFS_MAP_ERASED;
         }
         if(ZEROFS_MAP_ERASED==sm[fp->sector]) sm[fp->sector]=id;
@@ -999,7 +999,7 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
           fp->sector=s;
           fp->pos=0;
           // 2.c.
-          if(sm[fp->sector]!=ZEROFS_MAP_ERASED) zfs->fls->fls_erase(zfs->fls->data_ud, fp->sector*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE);
+          if(sm[fp->sector]!=ZEROFS_MAP_ERASED) zfs->fls->fls_erase(zfs->fls->data_ud, fp->sector*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE, 0);
           // 2.e.
           sm[fp->sector]=fp->id;
         }

@@ -90,7 +90,7 @@ int fls_read(void *ud, uint32_t addr, uint8_t *data, uint32_t len)
   return flash_area_read(ud, addr, data, len);
 }
 
-int fls_erase(void *ud, uint32_t addr, uint32_t len)
+int fls_erase(void *ud, uint32_t addr, uint32_t len, int background)
 {
   return flash_area_erase(ud, addr, len);
 }
