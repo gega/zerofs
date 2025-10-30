@@ -265,7 +265,7 @@ static void zerofs_repack_superblock(struct zerofs *zfs)
     }
   }
   // update the free slot for the next namemap entry
-  zfs->last_namemap_id=ni+1;
+  zfs->last_namemap_id=ni;
   // program the updated RAM sector map
   zfs->fls->fls_write(zfs->fls->super_ud, nb*ZEROFS_SUPER_SECTOR_SIZE, zfs->sector_map, sizeof(zfs->superblock->sector_map));
   // copy the metadata fields from RAM if present
