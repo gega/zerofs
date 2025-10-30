@@ -3,7 +3,7 @@
 all:		zerofs littlefs data/.gen
 
 zerofs:		zerofs.c zerofs.h lua/src/liblua.a test.h flash.h flash.c
-		gcc -g -Ilua/src -Llua/src -Wall -o zerofs zerofs.c flash.c -lncursesw -llua -lm
+		gcc -Ilua/src -Llua/src -Wall -o zerofs zerofs.c flash.c -lncursesw -llua -lm
 
 littlefs:	littlefs.c flash.c flash.h lfs/liblfs.a lua/src/liblua.a test.h
 		gcc -Ilua/src -Llua/src -Ilfs/ -Llfs/ -Wall -o littlefs littlefs.c flash.c -lncursesw -llfs -llua -lm

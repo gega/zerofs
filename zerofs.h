@@ -463,8 +463,8 @@ static uint8_t zerofs_namemap_find_sector(struct zerofs *zfs, sector_t first)
   
   if(NULL==zfs) return(ret);
   
-  for(i=0;i<ZEROFS_MAX_NUMBER_OF_FILES;i++) if(first==zfs->superblock->namemap[i].first_sector) break;
-  if(first==zfs->superblock->namemap[i].first_sector) ret=i;
+  for(i=0;i<zfs->last_namemap_id;i++) if(zfs->superblock->namemap[i].type_len!=0&&first==zfs->superblock->namemap[i].first_sector) break;
+  if(i<zfs->last_namemap_id) ret=i;
 
   return(ret);
 }
@@ -570,7 +570,7 @@ static int zerofs_delete_by_id(struct zerofs *zfs, int id)
   uint8_t *sm;
   sector_t sec;
   int i,last;
-  static const uint8_t buf[6+2]={0,0,0,0,0,0,0,0}; // alignment to 4
+  static const struct zerofs_namemap zero;
 
   // 1. in zerofs_delete()
   if(id!=ZEROFS_MAP_EMPTY)
@@ -580,7 +580,7 @@ static int zerofs_delete_by_id(struct zerofs *zfs, int id)
     sector_t from=zfs->superblock->namemap[id].first_sector;
     // 4.
     uint32_t addr = (id*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap);
-    zfs->fls->fls_write(zfs->fls->super_ud, addr+(zfs->bank*ZEROFS_SUPER_SECTOR_SIZE), buf, sizeof(buf));
+    zfs->fls->fls_write(zfs->fls->super_ud, addr+(zfs->bank*ZEROFS_SUPER_SECTOR_SIZE), ((uint8_t *)&zero), sizeof(zero));
     // 6.
     for(last=-1,i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++)
     {

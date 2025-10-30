@@ -40,7 +40,7 @@ static char *test_out;
 static int draw_init=0;
 static int colors_supported=0;
 
-// simulated flash 
+// simulated flash
 static uint8_t mem_flash[4*1024*1024];  // 4MB -- 1024 blocks
 static uint8_t mem_super[2 * 4096];     // 8KB -- 2    blocks
 
@@ -634,6 +634,13 @@ int l_assert(lua_State *L)
 
 // lua admin
 
+void lua_linehook(lua_State *L, lua_Debug *ar)
+{
+  // called after every line of lua
+  // do nothing normally -- later on we can refresh the garphics from here
+  // or do some periodic processing
+}
+
 static int luaopen_zerofslib(lua_State *L)
 {
     luaL_Reg funcs[] = {
@@ -722,6 +729,7 @@ int main(int argc, char **argv)
     draw_init=1;
     draw_update(0,1);
 
+    lua_sethook(L, lua_linehook, LUA_MASKLINE | LUA_MASKCALL, 0);
     if(luaL_dofile(L, argv[1]))
     {
         CONSOLE(&conlog, "lua error %s\n", lua_tostring(L, -1));
