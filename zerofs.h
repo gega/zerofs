@@ -58,6 +58,8 @@ static_assert(ZEROFS_MAX_NUMBER_OF_FILES<=ZEROFS_MAX_FILES,"Max number of files 
 
 #define ZEROFS_SUPER_MAPPED (~(uint16_t)0)
 
+#define ZEROFS_INVALID_SECTOR (~0)
+
 typedef uint16_t sector_t;
 
 #ifndef MIN
@@ -165,6 +167,7 @@ struct zerofs
 #endif
   struct zerofs_metadata meta;
   const struct zerofs_flash_access *fls;	// flash access struct in rom
+  sector_t erased_max;
 };
 
 static_assert(sizeof(struct zerofs_superblock)<=ZEROFS_FLASH_SECTOR_SIZE, "Superblock too large, reduce ZEROFS_MAX_NUMBER_OF_FILES!");
@@ -206,18 +209,9 @@ int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
   zfs->meta.last_written_len=zfs->superblock->meta.last_written_len;
   zfs->meta.version=zfs->superblock->meta.version;
   zfs->last_namemap_id=0;
+  zfs->erased_max=ZEROFS_INVALID_SECTOR;
   for(i=0;i<ZEROFS_MAX_NUMBER_OF_FILES;i++) if(zfs->superblock->namemap[i].type_len!=0&&zfs->superblock->namemap[i].type_len!=0xffffffff) zfs->last_namemap_id=i+1;
 
-  return(0);
-}
-
-// check if there is any background operation in progress
-static int zerofs_is_background_erase(struct zerofs *zfs)
-{
-  if(!zfs->background)
-  {
-    // TODO check background operation with the flash driver api
-  }
   return(0);
 }
 
@@ -292,11 +286,13 @@ int zerofs_readonly_mode(struct zerofs *zfs, uint8_t *sector_map)
   if(NULL!=sector_map)
   {
     // SET WRITE MODE
-    if(zerofs_is_background_erase(zfs))
-    {
-      // TODO: wait for background operation finished using flash api
-    }
     memcpy(sector_map, zfs->superblock->sector_map, sizeof(zfs->superblock->sector_map));
+    uint8_t *sm=sector_map;
+    if(zfs->erased_max!=ZEROFS_INVALID_SECTOR)
+    {
+      // mark all background erased sectors erased
+      for(int i=0;i<zfs->erased_max;i++) if(sm[i]==ZEROFS_MAP_EMPTY) sm[i]=ZEROFS_MAP_ERASED;
+    }
   }
   
   return(0);
@@ -1021,17 +1017,19 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
 
 int zerofs_background_erase(struct zerofs *zfs)
 {
+  int i;
+  uint8_t *sm;
+
   if(NULL==zfs) return(ZEROFS_ERR_ARG);
 
   if(zerofs_is_readonly_mode(zfs))
   {
-    if(!zerofs_is_background_erase(zfs))
+    sm=(uint8_t *)ZEROFS_SECTOR_MAP(zfs);
+    for(i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++) if(sm[i]==ZEROFS_MAP_EMPTY) break;
+    if(i<ZEROFS_NUMBER_OF_SECTORS && sm[i]==ZEROFS_MAP_EMPTY)
     {
-      // in read only mode, when the system is idle
-      // delete some EMPTY map sectors
-      // for reading they are still available if we suspend the erase operation
-      // during write mode, do not do background erase operation and
-      // TODO wait for erase operation to finish when we switch to write mode
+      zfs->fls->fls_erase(zfs->fls->data_ud, i*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE, 1);
+      zfs->erased_max=i;
     }
   }
   
