@@ -609,6 +609,17 @@ static int l_delete(lua_State *L)
     return((quit?luaL_error(L, "Interrupted"):1));
 }
 
+static int l_erase_async(lua_State *L)
+{
+  int st;
+  
+  st=zerofs_background_erase(&zfs);
+  CONSOLE(&conlog,"%s() st=%d\n", __FUNCTION__, st);
+  draw_update(1,1);
+  if(!quit) lua_pushinteger(L, st);
+  return((quit?luaL_error(L, "Interrupted"):1));
+}
+
 void l_warn(void *ud, const char *msg, int tocont)
 {
   lua_State *L=ud;
@@ -655,6 +666,7 @@ static int luaopen_zerofslib(lua_State *L)
         { "getch", l_getch },
         { "assert", l_assert },
         { "badblock", l_badblock },
+        { "erase_async", l_erase_async },
         { NULL, NULL }
     };
     luaL_newlib(L, funcs);
