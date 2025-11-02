@@ -127,7 +127,10 @@ struct zerofs_namemap
   uint32_t type_len;            // type and length combined: MSB is type 3 LSB are length
 };
 
+static_assert( (sizeof(uint32_t) % ZEROFS_SUPER_WRITE_GRANULARITY) == 0, "type_len field of struct zerofs_namemap not matching to ZEROFS_SUPER_WRITE_GRANULARITY, choose a larger type!");
+static_assert( (sizeof(struct zerofs_namemap) % ZEROFS_SUPER_WRITE_GRANULARITY) == 0, "struct zerofs_namemap not matching to ZEROFS_SUPER_WRITE_GRANULARITY, adjust the size with padding!");
 static_assert(ZEROFS_SUPER_WRITE_GRANULARITY<=sizeof(struct zerofs_namemap), "Superblock flash write granularity shouldn't be larger than sizeof(struct zerofs_namemap)");
+static_assert( (ZEROFS_NUMBER_OF_SECTORS % ZEROFS_SUPER_WRITE_GRANULARITY) == 0, "sector_map size is not matching to ZEROFS_SUPER_WRITE_GRANULARITY, add some padding bytes!");
 
 #define ZEROFS_NM_GET_TYPE(nm) ((nm)->type_len>>24)
 #define ZEROFS_NM_GET_SIZE(nm) ((nm)->type_len&0xffffff)
@@ -141,6 +144,8 @@ struct zerofs_metadata
   uint16_t version;                                           // choose the smaller on boot
   uint16_t padding;
 };
+
+static_assert( (sizeof(struct zerofs_metadata) % ZEROFS_SUPER_WRITE_GRANULARITY) == 0, "struct zerofs_metadata not matching to ZEROFS_SUPER_WRITE_GRANULARITY, adjust the size with padding!");
 
 // superblock on flash
 // must be mapped to RAM, fields cannot be written directly
@@ -694,7 +699,8 @@ int zerofs_create(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
         }
         if(ZEROFS_MAP_ERASED==sm[fp->sector]) sm[fp->sector]=id;
         // 6. write name and first_sector/offset only
-        zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + ((id)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap), (uint8_t *)&nm, offsetof(struct zerofs_namemap, type_len) );
+        nm.type_len=~0;
+        zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + ((id)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap), (uint8_t *)&nm, sizeof(struct zerofs_namemap));
         // 7.
         fp->id=id;
         fp->mode=ZEROFS_MODE_WRITE_ONLY;
@@ -882,7 +888,8 @@ int zerofs_append(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
             // rename id in map
             for(i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++) if(sm[i]==id) sm[i]=ni;
             // flash new namemap entry
-            zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + ((ni)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap), (uint8_t *)&nm, offsetof(struct zerofs_namemap, type_len) );
+            nm.type_len=~0;
+            zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + ((ni)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap), (uint8_t *)&nm, sizeof(struct zerofs_namemap) );
             // delete old namemap entry
             uint32_t addr = (id*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap);
             zfs->fls->fls_write(zfs->fls->super_ud, addr+(zfs->bank*ZEROFS_SUPER_SECTOR_SIZE), buf, sizeof(buf));
