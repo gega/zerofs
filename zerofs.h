@@ -58,8 +58,6 @@ static_assert(ZEROFS_MAX_NUMBER_OF_FILES<=ZEROFS_MAX_FILES,"Max number of files 
 
 #define ZEROFS_SUPER_MAPPED (~(uint16_t)0)
 
-#define ZEROFS_INVALID_SECTOR (~0)
-
 typedef uint16_t sector_t;
 
 #ifndef MIN
@@ -209,7 +207,7 @@ int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
   zfs->meta.last_written_len=zfs->superblock->meta.last_written_len;
   zfs->meta.version=zfs->superblock->meta.version;
   zfs->last_namemap_id=0;
-  zfs->erased_max=ZEROFS_INVALID_SECTOR;
+  zfs->erased_max=0;
   for(i=0;i<ZEROFS_MAX_NUMBER_OF_FILES;i++) if(zfs->superblock->namemap[i].type_len!=0&&zfs->superblock->namemap[i].type_len!=0xffffffff) zfs->last_namemap_id=i+1;
 
   return(0);
@@ -288,11 +286,9 @@ int zerofs_readonly_mode(struct zerofs *zfs, uint8_t *sector_map)
     // SET WRITE MODE
     memcpy(sector_map, zfs->superblock->sector_map, sizeof(zfs->superblock->sector_map));
     uint8_t *sm=sector_map;
-    if(zfs->erased_max!=ZEROFS_INVALID_SECTOR)
-    {
-      // mark all background erased sectors erased
-      for(int i=0;i<zfs->erased_max;i++) if(sm[i]==ZEROFS_MAP_EMPTY) sm[i]=ZEROFS_MAP_ERASED;
-    }
+    // mark all background erased sectors erased
+    for(int i=0; i<zfs->erased_max; i++) if(sm[i]==ZEROFS_MAP_EMPTY) sm[i]=ZEROFS_MAP_ERASED;
+    zfs->erased_max=0;
   }
   
   return(0);
@@ -1029,7 +1025,7 @@ int zerofs_background_erase(struct zerofs *zfs)
     if(i<ZEROFS_NUMBER_OF_SECTORS && sm[i]==ZEROFS_MAP_EMPTY)
     {
       zfs->fls->fls_erase(zfs->fls->data_ud, i*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE, 1);
-      zfs->erased_max=i;
+      zfs->erased_max=i+1;
     }
   }
   
