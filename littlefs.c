@@ -85,33 +85,37 @@ static char *files[400];
 static int files_max=0;
 static int file_find(const char *name)
 {
-  for(int i=0;i<files_max;i++) if(files[i]!=NULL&&strcmp(files[i],name)==0) return(i);
+  for(int i=0;i<ARRAY_SIZE(files);i++) if(files[i]!=NULL&&strcmp(files[i],name)==0) return(i);
   return(-1);
 }
 static int file_cache(const char *name, int add)
 {
-  int ret;
+  int ret,i;
+
   if(add)
   {
-    if(files_max>=ARRAY_SIZE(files)) return(-1);
-    ret=files_max++;
+    for(i=0;i<ARRAY_SIZE(files);i++) if(files[i]==NULL) break;
+    if(i>=ARRAY_SIZE(files)) return(-1);
+    ret=i;
     files[ret]=strdup(name);
+    files_max++;
   }
   else
   {
     ret=file_find(name);
     if(ret>=0&&NULL!=files[ret])
     {
-      for(int i=0;i<LFS_NUMBER_OF_SECTORS;i++) if(sector_map[i]==ret) sector_map[i]=INVALID_ID;
+      for(i=0;i<LFS_NUMBER_OF_SECTORS;i++) if(sector_map[i]==ret) sector_map[i]=INVALID_ID;
       free(files[ret]);
       files[ret]=NULL;
     }
+    files_max--;
   }
   return(ret);
 }
 static void files_free(void)
 {
-  for(int i=0;i<files_max;i++) if(files[i]!=NULL) free(files[i]);
+  for(int i=0;i<ARRAY_SIZE(files);i++) if(files[i]!=NULL) free(files[i]);
 }
 
 #define OFFSET(fa,blk,off) (((size_t)(blk)) * (fa)->prop.sector_size + (off))
@@ -220,7 +224,7 @@ static void set_color(int i)
     }
     init=1;
   }
-  if(i<0||i>=files_max)
+  if(i<0||i>=ARRAY_SIZE(files))
   {
     attrset(COLOR_PAIR(0));
     use_default_colors();
@@ -313,7 +317,7 @@ static void draw_files(lfs_t *lfs, int x, int y, int w, int h)
 
     xx = 0;
     yy = 0;
-    for(id = 0; id < files_max; id++)
+    for(id = 0; id < ARRAY_SIZE(files); id++)
     {
         valid=1;
         if(files[id]!=NULL)

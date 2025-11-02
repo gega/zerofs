@@ -4,12 +4,12 @@ local m = require('zerofs')
 local TEST_DIR = "data"
 local SIZES = require("testfilesizes")
 local FILES = {};
-local ITERATIONS = 22
-local CHUNK_SIZE = 2048
+local ITERATIONS = 190
+local CHUNK_SIZE = 3000
 local SPEED_FACTOR = 0
 local DELAY_MS = 0
 local DELETE_RATIO = 0.45   -- fraction of existing files to delete when full
-local SEED = 8839;
+local SEED = 5820;
 -- ----------------------------------------------------------------
 
 m.badblock(false)
@@ -67,6 +67,7 @@ for iter = 1, ITERATIONS do
       break
     end
   end
+  failed_any = true
 
   if failed_any then
     local existing = {}
