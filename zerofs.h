@@ -287,7 +287,7 @@ int zerofs_readonly_mode(struct zerofs *zfs, uint8_t *sector_map)
     memcpy(sector_map, zfs->superblock->sector_map, sizeof(zfs->superblock->sector_map));
     uint8_t *sm=sector_map;
     // mark all background erased sectors erased
-    for(int i=0; i<zfs->erased_max; i++) if(sm[i]==ZEROFS_MAP_EMPTY) sm[i]=ZEROFS_MAP_ERASED;
+    for(int i=0; i<zfs->erased_max; i++) if(sm[ZEROFS_BLOCK(zfs, i)]==ZEROFS_MAP_EMPTY) sm[ZEROFS_BLOCK(zfs, i)]=ZEROFS_MAP_ERASED;
     zfs->erased_max=0;
   }
   
@@ -1014,17 +1014,19 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
 int zerofs_background_erase(struct zerofs *zfs)
 {
   int i;
-  uint8_t *sm;
+  const uint8_t *sm;
+  sector_t sc;
 
   if(NULL==zfs) return(ZEROFS_ERR_ARG);
 
   if(zerofs_is_readonly_mode(zfs))
   {
-    sm=(uint8_t *)ZEROFS_SECTOR_MAP(zfs);
-    for(i=0;i<ZEROFS_NUMBER_OF_SECTORS;i++) if(sm[i]==ZEROFS_MAP_EMPTY) break;
-    if(i<ZEROFS_NUMBER_OF_SECTORS && sm[i]==ZEROFS_MAP_EMPTY)
+    sm=ZEROFS_SECTOR_MAP(zfs);
+    for(i=zfs->erased_max;i<ZEROFS_NUMBER_OF_SECTORS;i++) if(sm[ZEROFS_BLOCK(zfs, i)]==ZEROFS_MAP_EMPTY) break;
+    sc=ZEROFS_BLOCK(zfs, i);
+    if(i<ZEROFS_NUMBER_OF_SECTORS && sm[sc]==ZEROFS_MAP_EMPTY)
     {
-      zfs->fls->fls_erase(zfs->fls->data_ud, i*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE, 1);
+      zfs->fls->fls_erase(zfs->fls->data_ud, sc*ZEROFS_FLASH_SECTOR_SIZE, ZEROFS_FLASH_SECTOR_SIZE, 1);
       zfs->erased_max=i+1;
     }
   }

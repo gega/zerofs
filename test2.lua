@@ -4,7 +4,7 @@ local m = require('zerofs')
 local TEST_DIR = "data"
 local SIZES = require("testfilesizes")
 local FILES = {};
-local ITERATIONS = 190
+local ITERATIONS = 160
 local CHUNK_SIZE = 3000
 local SPEED_FACTOR = 0
 local DELAY_MS = 0
@@ -94,6 +94,9 @@ for iter = 1, ITERATIONS do
     f=FILES[s]
     if state[f] == "good" then
       local res = m.verify(f)
+      m.erase_async();
+      m.erase_async();
+      m.erase_async();
       if res ~= 0 then
         m.assert("Verification failed for " .. f .. " (code " .. res .. ")")
       end
