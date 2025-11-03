@@ -74,7 +74,7 @@ struct zerofs_flash_access
   int (*fls_write)(void *ud, uint32_t addr, const uint8_t *data, uint32_t len);
   int (*fls_read)(void *ud, uint32_t addr, uint8_t *data, uint32_t len);
   int (*fls_erase)(void *ud, uint32_t addr, uint32_t len, int background);
-  uint8_t *superblock_banks;
+  const uint8_t *superblock_banks;
   void *data_ud;
   void *super_ud;
 };
