@@ -161,15 +161,16 @@ All functions return `0` on success or a negative error code on failure.
 ### Error Codes
 
 ```c
-#define ZEROFS_ERR_MAXFILES   (-2)  // Reached ZEROFS_MAX_NUMBER_OF_FILES
-#define ZEROFS_ERR_NOTFOUND   (-3)  // File not found
-#define ZEROFS_ERR_READMODE   (-4)  // Operation not allowed in READ mode
-#define ZEROFS_ERR_NOSPACE    (-5)  // No space left on device
-#define ZEROFS_ERR_OPEN       (-6)  // Failure during open
-#define ZEROFS_ERR_ARG        (-7)  // Invalid argument
-#define ZEROFS_ERR_WRITEMODE  (-8)  // Operation not allowed in WRITE mode
-#define ZEROFS_ERR_OVERFLOW   (-9)  // Seek/write overflow
-#define ZEROFS_ERR_BADSECTOR (-10)  // Bad sector detected
+#define ZEROFS_ERR_MAXFILES    (-2)  // Reached ZEROFS_MAX_NUMBER_OF_FILES
+#define ZEROFS_ERR_NOTFOUND    (-3)  // File not found
+#define ZEROFS_ERR_READMODE    (-4)  // Operation not allowed in READ mode
+#define ZEROFS_ERR_NOSPACE     (-5)  // No space left on device
+#define ZEROFS_ERR_OPEN        (-6)  // Failure during open
+#define ZEROFS_ERR_ARG         (-7)  // Invalid argument
+#define ZEROFS_ERR_WRITEMODE   (-8)  // Operation not allowed in WRITE mode
+#define ZEROFS_ERR_OVERFLOW    (-9)  // Seek/write overflow
+#define ZEROFS_ERR_BADSECTOR  (-10)  // Bad sector detected
+#define ZEROFS_ERR_INVALIDFP  (-12)  // Invalid file descriptor structure
 ```
 
 ---
@@ -297,6 +298,12 @@ int zerofs_delete(struct zerofs *zfs, const char *name);
 ```
 
 Deletes a file by name.
+
+```c
+uint32_t zerofs_file_len(struct zerofs *zfs);
+```
+
+Returns the length of the file. _(macro)_
 
 ---
 
