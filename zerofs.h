@@ -111,6 +111,7 @@ static const char *zerofs_extensions[]=
 #define ZEROFS_ERR_OVERFLOW    (-9)
 #define ZEROFS_ERR_BADSECTOR   (-10)
 #define ZEROFS_ERR_INVALIDNAME (-11)
+#define ZEROFS_ERR_INVALIDFP   (-12)
 
 // get sector_map index from the base of last_written
 #define ZEROFS_BLOCK(zfs, i) (((zfs)->meta.last_written+(i))%ZEROFS_NUMBER_OF_SECTORS)
@@ -189,10 +190,13 @@ struct zerofs_file
   uint8_t flags;
 };
 
+#define zerofs_file_len(fp, lenp) ((*(lenp))=(fp)->size)
+
 #endif
 
 
 #ifdef ZEROFS_IMPLEMENTATION
+
 
 int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
 {
@@ -721,7 +725,8 @@ int zerofs_close(struct zerofs_file *fp)
 
   if(NULL==fp) return(ZEROFS_ERR_ARG);
 
-  zfs=fp->zfs;  
+  zfs=fp->zfs;
+  if(NULL==zfs) return(ZEROFS_ERR_INVALIDFP);
   if(ZEROFS_MODE_WRITE_ONLY==fp->mode)
   {
     uint32_t type_len=(fp->type<<24) | fp->size;
@@ -760,6 +765,7 @@ int zerofs_read(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
     len-=l;
     buf+=l;
     fp->pos+=l;
+    ret+=l;
     if(fp->pos>=ZEROFS_FLASH_SECTOR_SIZE)
     {
       fp->sector=zerofs_find_sector_type(fp->zfs, fp->sector, fp->id);
