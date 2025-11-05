@@ -190,7 +190,7 @@ struct zerofs_file
   uint8_t flags;
 };
 
-#define zerofs_file_len(fp, lenp) ((*(lenp))=(fp)->size)
+#define zerofs_file_len(fp) ((fp)->size)
 
 #endif
 
