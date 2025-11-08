@@ -487,7 +487,7 @@ static int l_verify(lua_State *L)
                 if(st == 0)
                 {
                   st = zerofs_read(&fp, data2, len);
-                  if(st == 0)
+                  if(st >= 0)
                   {
                     int i;
                     for(i=0;i<len;i++) if(data[i]!=data2[i]) break;
