@@ -219,6 +219,7 @@ int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
 {
   int i,bank;
   uint16_t v0,v1;
+  struct zerofs_metadata meta;
 
   if(NULL==zfs||NULL==fls_acc) return(ZEROFS_ERR_ARG);
 
@@ -226,23 +227,23 @@ int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
   zfs->fls=fls_acc;
 
   bank=0;
-  zfs->superblock=(const struct zerofs_superblock *)(zfs->fls->superblock_banks + (bank*ZEROFS_SUPER_SECTOR_SIZE));
-  v0=zfs->superblock->meta.version;
+  struct zerofs_superblock *sb0=(struct zerofs_superblock *)(zfs->fls->superblock_banks + (bank*ZEROFS_SUPER_SECTOR_SIZE));
+  memcpy(&meta, &sb0->meta, sizeof(struct zerofs_metadata));
+  v0=meta.version;
   bank=1;
-  zfs->superblock=(const struct zerofs_superblock *)(zfs->fls->superblock_banks + (bank*ZEROFS_SUPER_SECTOR_SIZE));
-  v1=zfs->superblock->meta.version;
+  struct zerofs_superblock *sb1=(struct zerofs_superblock *)(zfs->fls->superblock_banks + (bank*ZEROFS_SUPER_SECTOR_SIZE));
+  memcpy(&meta, &sb1->meta, sizeof(struct zerofs_metadata));
+  v1=meta.version;
   if(v1==v0 || v1>ZEROFS_SUPERBLOCK_VERSION_MAX || v0>ZEROFS_SUPERBLOCK_VERSION_MAX) zerofs_format(zfs);
   zfs->bank=(v0 < v1 ? 0 : 1);
+  zfs->superblock=(const struct zerofs_superblock *)(v0 < v1 ? sb0 : sb1 );
+  memcpy(&zfs->meta, &zfs->superblock->meta, sizeof(struct zerofs_metadata));
   zfs->meta.version=(v0 < v1 ? v0 : v1);
   if(zfs->meta.version>ZEROFS_SUPERBLOCK_VERSION_MAX) zfs->meta.version=ZEROFS_SUPERBLOCK_VERSION_MAX;
-  zfs->superblock=(const struct zerofs_superblock *)(zfs->fls->superblock_banks + (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE));
 #if (ZEROFS_VERIFY!=0)
   zfs->verify_cnt=zfs->verify=ZEROFS_VERIFY;
 #endif
   zfs->sector_map=NULL;
-  zfs->meta.last_written=zfs->superblock->meta.last_written;
-  zfs->meta.last_written_len=zfs->superblock->meta.last_written_len;
-  zfs->meta.version=zfs->superblock->meta.version;
   zfs->last_namemap_id=0;
   zfs->erased_max=0;
   for(i=0;i<ZEROFS_MAX_NUMBER_OF_FILES;i++) if(zfs->superblock->namemap[i].type_len!=0&&zfs->superblock->namemap[i].type_len!=0xffffffff) zfs->last_namemap_id=i+1;
