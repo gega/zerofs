@@ -231,7 +231,7 @@ int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
   bank=1;
   zfs->superblock=(const struct zerofs_superblock *)(zfs->fls->superblock_banks + (bank*ZEROFS_SUPER_SECTOR_SIZE));
   v1=zfs->superblock->meta.version;
-  if(v1==v0||(v1==0xffffu && v0==0xffffu)) zerofs_format(zfs);
+  if(v1==v0 || v1>ZEROFS_SUPERBLOCK_VERSION_MAX || v0>ZEROFS_SUPERBLOCK_VERSION_MAX) zerofs_format(zfs);
   zfs->bank=(v0 < v1 ? 0 : 1);
   zfs->meta.version=(v0 < v1 ? v0 : v1);
   if(zfs->meta.version>ZEROFS_SUPERBLOCK_VERSION_MAX) zfs->meta.version=ZEROFS_SUPERBLOCK_VERSION_MAX;
