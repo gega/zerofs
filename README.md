@@ -314,7 +314,7 @@ int zerofs_background_erase(struct zerofs *zfs);
 ```
 
 Performs background flash erases while in **READ mode**.
-Does not block reads, but must complete before switching to WRITE mode.
+Does not block reads, but must complete before switching to WRITE mode. The underlying flash driver is expected to handle the background flash operation if supported by the chip.
 
 # Third-party components
 
