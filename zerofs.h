@@ -79,8 +79,8 @@ static_assert(ZEROFS_MAX_NUMBER_OF_FILES<=ZEROFS_MAX_FILES,"Max number of files 
 
 #define ZEROFS_SUPERBLOCK_VERSION_MAX (0xfffe)
 
-#define ZEROFS_MAP_EMPTY    (0xfeu)
-#define ZEROFS_MAP_ERASED   (0xffu)
+#define ZEROFS_MAP_EMPTY    (0xffu)
+#define ZEROFS_MAP_ERASED   (0xfeu)
 #define ZEROFS_MAP_BAD      (0xfdu)
 
 #define ZEROFS_SUPER_MAPPED (~(uint16_t)0)
@@ -859,7 +859,7 @@ int zerofs_seek(struct zerofs_file *fp, int32_t pos)
       else
       {
         fp->sector=sec;
-        fp->pos=pos;
+        fp->pos=pos+fp->zfs->superblock->namemap[fp->id].first_offset;
       }
     }
     else ret=ZEROFS_ERR_ARG;

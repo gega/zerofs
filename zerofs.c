@@ -486,8 +486,10 @@ static int l_write(lua_State *L)
 static int l_verify(lua_State *L)
 {
     const int chunk[]={ 10, 3, 128, 512, 101, 7, -1 };
+    const int seek[]={ 10, 0, 5111, 101, -1 };
     const char *name = luaL_checkstring(L, 1);
     char path[PATH_MAX];
+    uint8_t seek_buf[11];
     uint8_t *data, *data2;
     int st=-1;
 
@@ -527,8 +529,26 @@ static int l_verify(lua_State *L)
                         }
                         else CONSOLE(&conlog, "ERROR %s() zerofs_read error: %d\n", __FUNCTION__, st);
                     }
-                    if(j>=len) { st=0; CONSOLE(&conlog, "%s() '%s' VERIFIED OK\n", __FUNCTION__, name); }
+                    if(j>=len) st=0;
                     else { st=-1; CONSOLE(&conlog, "ERROR %s() '%s' differ at char %d\n", __FUNCTION__, name, j); }
+                    if(st==0)
+                    {
+                        // if full read on, do seek test
+                        for(i=0; seek[i]>0 && st==0; i++)
+                        {
+                            if(seek[i]>=(len-sizeof(seek_buf))) continue;
+                            st = zerofs_seek(&fp, seek[i]);
+                            if(st != 0) break;
+                            st = zerofs_read(&fp, seek_buf, sizeof(seek_buf));
+                            if(st!=sizeof(seek_buf)) break;
+                            for(j=0; j<st; j++) if(seek_buf[j] != data[seek[i]+j]) break;
+                            if(j>=st) st=0;
+                            else CONSOLE(&conlog, "ERROR %s() '%s' seek mismatch at %d 0x%02x != 0x%02x\n",__FUNCTION__, name, seek[i]+j, seek_buf[j], data[seek[i]+j]);
+                        }
+                        if(st==0) { CONSOLE(&conlog, "%s() '%s' VERIFIED OK\n", __FUNCTION__, name); }
+                        else { CONSOLE(&conlog, "ERROR %s() '%s' SEEK FAILED len=%ld pos=%d st=%d\n", __FUNCTION__, name, sizeof(seek_buf), seek[i], st); }
+                    }
+                    zerofs_close(&fp);
                 }
                 else CONSOLE(&conlog, "ERROR %s() zerofs_open error: %d\n", __FUNCTION__, st);
                 draw_update(1,0);
