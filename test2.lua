@@ -1,4 +1,4 @@
-local m = require('zerofs')
+local m = require('fstest')
 
 -- --- CONFIG ------------------------------------------------------
 local TEST_DIR = "data"

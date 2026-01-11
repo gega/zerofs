@@ -485,6 +485,7 @@ static int l_write(lua_State *L)
 
 static int l_verify(lua_State *L)
 {
+    const int chunk[]={ 10, 3, 128, 512, 101, 7, -1 };
     const char *name = luaL_checkstring(L, 1);
     char path[PATH_MAX];
     uint8_t *data, *data2;
@@ -504,24 +505,30 @@ static int l_verify(lua_State *L)
             fseek(f, 0, SEEK_END);
             len = ftell(f);
             fseek(f, 0, SEEK_SET);
-            data = calloc(len,1);
+            data = calloc(len+1,1);
             if(len == fread(data, 1, len, f))
             {
                 struct zerofs_file fp;
                 draw_update(0,0);
-                data2 = calloc(len,1);
+                data2 = calloc(len+1,1);
                 st = zerofs_open(&zfs, &fp, name);
                 if(st == 0)
                 {
-                  st = zerofs_read(&fp, data2, len);
-                  if(st >= 0)
-                  {
-                    int i;
-                    for(i=0;i<len;i++) if(data[i]!=data2[i]) break;
-                    if(i>=len) { st=0; CONSOLE(&conlog, "%s() '%s' VERIFIED OK\n", __FUNCTION__, name); }
-                    else { st=-1; CONSOLE(&conlog, "ERROR %s() '%s' differ at char %d\n", __FUNCTION__, name, i); }
-                  }
-                  else CONSOLE(&conlog, "ERROR %s() zerofs_read error: %d\n", __FUNCTION__, st);
+                    int ci, cl, j, i;
+                    for(ci=j=0; j<len ;++ci)
+                    {
+                        if( chunk[ci] < 0 ) ci = 0;
+                        cl = MIN( chunk[ci], len);
+                        st = zerofs_read(&fp, data2, cl);
+                        if(st >= 0)
+                        {
+                            for(i=0;i<st;i++,j++) if(data[j]!=data2[i]) break;
+                            if(i<st) break;
+                        }
+                        else CONSOLE(&conlog, "ERROR %s() zerofs_read error: %d\n", __FUNCTION__, st);
+                    }
+                    if(j>=len) { st=0; CONSOLE(&conlog, "%s() '%s' VERIFIED OK\n", __FUNCTION__, name); }
+                    else { st=-1; CONSOLE(&conlog, "ERROR %s() '%s' differ at char %d\n", __FUNCTION__, name, j); }
                 }
                 else CONSOLE(&conlog, "ERROR %s() zerofs_open error: %d\n", __FUNCTION__, st);
                 draw_update(1,0);
@@ -708,7 +715,7 @@ static lua_State *luainit(void)
     lua_getglobal(L, "package");
     lua_getfield(L, -1, "preload");
     lua_pushcfunction(L, luaopen_zerofslib);
-    lua_setfield(L, -2, "zerofs");
+    lua_setfield(L, -2, "fstest");
     lua_pop(L, 2);
     lua_setwarnf(L, l_warn, L);
 

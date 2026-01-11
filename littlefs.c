@@ -206,17 +206,7 @@ static const struct lfs_config lfs_cfg =
 // lfs end
 
 
-#define ZEROFS_EXTENSION_LIST \
-    X("csv")                  \
-    X("qla")                  \
-    X("qli")
-
-
-#define ZEROFS_IMPLEMENTATION
 #include "zerofs.h"
-
-
-static_assert(ZEROFS_NUMBER_OF_SECTORS == 1024, "change ram_sector_map and flash area sizes before adjusting sector count!");
 
 
 // tui tools
@@ -334,7 +324,7 @@ static void draw_status(lfs_t *lfs, int step, int w)
 
 static void draw_files(lfs_t *lfs, int x, int y, int w, int h)
 {
-    static const int width=20;
+    static const int width=21;
     int id;
     int xx, yy;
     char str1[width + 1];
@@ -495,11 +485,11 @@ static int l_write(lua_State *L)
                 }
                 if(st>0) st=0;
                 if(st == 0) CONSOLE(&conlog, "%s() FILE '%s' [%d] WRITTEN\n", __FUNCTION__, name, len);
-                else CONSOLE(&conlog, "ERROR %s() zerofs_write error: %d\n", __FUNCTION__, st);
+                else CONSOLE(&conlog, "ERROR %s() lfs_file_write() error: %d\n", __FUNCTION__, st);
                 lfs_file_close(&lfs, &fp);
                 if(st!=0) lfs_remove(&lfs, name);
               }
-              else CONSOLE(&conlog, "ERROR %s() zerofs_createe error: %d\n", __FUNCTION__, st);
+              else CONSOLE(&conlog, "ERROR %s() lfs_file_opencfg() error: %d\n", __FUNCTION__, st);
               current_file_id=INVALID_ID;
               draw_update(1,1);
             }
@@ -518,6 +508,7 @@ static int l_write(lua_State *L)
 
 static int l_verify(lua_State *L)
 {
+    const int chunk[]={ 10, 3, 128, 512, 101, 7, -1 };
     const char *name = luaL_checkstring(L, 1);
     char path[PATH_MAX];
     uint8_t *data, *data2;
@@ -548,18 +539,24 @@ static int l_verify(lua_State *L)
                 st = lfs_file_opencfg(&lfs, &fp, name, LFS_O_RDONLY, &cfg);
                 if(st == 0)
                 {
-                  st = lfs_file_read(&lfs, &fp, data2, len);
-                  if(st >= 0)
-                  {
-                    int i;
-                    for(i=0;i<len;i++) if(data[i]!=data2[i]) break;
-                    if(i>=len) { st=0; CONSOLE(&conlog, "%s() '%s' VERIFIED OK\n", __FUNCTION__, name); }
-                    else { st=-1; CONSOLE(&conlog, "ERROR %s() '%s' differ at char %d\n", __FUNCTION__, name, i); }
-                  }
-                  else CONSOLE(&conlog, "ERROR %s() zerofs_read error: %d\n", __FUNCTION__, st);
-                  lfs_file_close(&lfs, &fp);
+                    int ci, cl, j, i;
+                    for(ci=j=0; j<len ;++ci)
+                    {
+                        if( chunk[ci] < 0 ) ci = 0;
+                        cl = MIN( chunk[ci], len);
+                        st = lfs_file_read(&lfs, &fp, data2, cl);
+                        if(st >= 0)
+                        {
+                            for(i=0;i<st;i++,j++) if(data[j]!=data2[i]) break;
+                            if(i<st) break;
+                        }
+                        else CONSOLE(&conlog, "ERROR %s() lfs_file_read() error: %d\n", __FUNCTION__, st);
+                    }
+                    if(j>=len) { st=0; CONSOLE(&conlog, "%s() '%s' VERIFIED OK\n", __FUNCTION__, name); }
+                    else { st=-1; CONSOLE(&conlog, "ERROR %s() '%s' differ at char %d\n", __FUNCTION__, name, j); }
+                    lfs_file_close(&lfs, &fp);
                 }
-                else CONSOLE(&conlog, "ERROR %s() zerofs_open error: %d\n", __FUNCTION__, st);
+                else CONSOLE(&conlog, "ERROR %s() lfs_file_opencfg() error: %d\n", __FUNCTION__, st);
                 draw_update(1,0);
                 free(data2);
             }
@@ -705,7 +702,7 @@ int l_assert(lua_State *L)
 
 // lua admin
 
-static int luaopen_zerofslib(lua_State *L)
+static int luaopen_littlefslib(lua_State *L)
 {
     luaL_Reg funcs[] = {
         { "write", l_write },
@@ -733,8 +730,8 @@ static lua_State *luainit(void)
     luaL_openlibs(L);
     lua_getglobal(L, "package");
     lua_getfield(L, -1, "preload");
-    lua_pushcfunction(L, luaopen_zerofslib);
-    lua_setfield(L, -2, "zerofs");
+    lua_pushcfunction(L, luaopen_littlefslib);
+    lua_setfield(L, -2, "fstest");
     lua_pop(L, 2);
     lua_setwarnf(L, l_warn, L);
 

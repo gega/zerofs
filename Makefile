@@ -3,10 +3,10 @@
 all:		zerofs littlefs data/.gen
 
 zerofs:		zerofs.c zerofs.h lua/src/liblua.a test.h flash.h flash.c
-		gcc -Ilua/src -Llua/src -Wall -o zerofs zerofs.c flash.c -lncursesw -llua -lm
+		gcc -Ilua/src -Llua/src -Wall -O3 -o zerofs zerofs.c flash.c -lncursesw -llua -lm
 
 littlefs:	littlefs.c flash.c flash.h lfs/liblfs.a lua/src/liblua.a test.h
-		gcc -Ilua/src -Llua/src -Ilfs/ -Llfs/ -Wall -o littlefs littlefs.c flash.c -lncursesw -llfs -llua -lm
+		gcc -Ilua/src -Llua/src -Ilfs/ -Llfs/ -Wall -O2 -o littlefs littlefs.c flash.c -lncursesw -llfs -llua -lm
 
 lua/src/liblua.a:
 		make -C lua/
@@ -16,6 +16,10 @@ lfs/liblfs.a:
 
 data/.gen:	testfilesizes.lua
 		./gendata.sh
+
+test:		data/.gen zerofs littlefs
+		./zerofs test1.lua
+		./littlefs test1.lua
 
 clean:
 		rm -f zerofs littlefs *.o

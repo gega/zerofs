@@ -1,4 +1,4 @@
-local m = require('zerofs');
+local m = require('fstest');
 
 local chunk = 2000000;
 

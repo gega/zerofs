@@ -118,15 +118,6 @@ enum zerofs_mode
 
 #define ZEROFS_TYPE_UNKNOWN (0)
 
-static const char *zerofs_extensions[]=
-{
-    "---",
-    #define X(ext) ext,
-    ZEROFS_EXTENSION_LIST
-    #undef X
-    NULL
-};
-
 // error codes
 #define ZEROFS_ERR_MAXFILES    (-2) // ZEROFS_MAX_NUMBER_OF_FILES reached
 #define ZEROFS_ERR_NOTFOUND    (-3)
@@ -142,7 +133,6 @@ static const char *zerofs_extensions[]=
 
 // get sector_map index from the base of last_written
 #define ZEROFS_BLOCK(zfs, i) (((zfs)->meta.last_written+(i))%ZEROFS_NUMBER_OF_SECTORS)
-
 
 static_assert(sizeof(int)>=4, "int should be at least 4 bytes");
 
@@ -225,6 +215,16 @@ struct zerofs_file
 
 
 #ifdef ZEROFS_IMPLEMENTATION
+
+
+static const char *zerofs_extensions[]=
+{
+    "---",
+    #define X(ext) ext,
+    ZEROFS_EXTENSION_LIST
+    #undef X
+    NULL
+};
 
 
 int zerofs_format(struct zerofs *zfs)
@@ -527,7 +527,7 @@ int zerofs_open(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
 {
   int ret=ZEROFS_ERR_OPEN;
   int id;
-  struct zerofs_namemap nm;
+  struct zerofs_namemap nm={0};
   sector_t sc;
   uint16_t of;
   uint8_t type;
@@ -646,7 +646,7 @@ static int zerofs_delete_by_id(struct zerofs *zfs, int id)
 int zerofs_delete(struct zerofs *zfs, const char *name)
 {
   int ret=0;
-  struct zerofs_namemap nm;
+  struct zerofs_namemap nm={0};
   int id;
   uint8_t type;
 
@@ -691,7 +691,7 @@ struct zerofs_fs *zerofs_create(const char *name);                              
 int zerofs_create(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
 {
   int ret=0;
-  struct zerofs_namemap nm;
+  struct zerofs_namemap nm={0};
 
   if(NULL==zfs||NULL==fp||NULL==name) return(ZEROFS_ERR_ARG);
 

@@ -102,7 +102,7 @@ int flash_area_write(struct flash_area *fa, uint32_t addr, const uint8_t *data, 
                 if(i < len) CONSOLE(&conlog, "%s() FLASH %d WARNING WRITING TO DIRTY AREA SECTOR %03x ADDR 0x%x\n", __FUNCTION__, fa->id, (addr/fa->prop.sector_size), addr);
                 for(i = 0; i < len; i++) fa->flash[addr + i] &= data[i];
                 ret = len;
-                CONSOLE(&conlog, "%s() FLASH %d WRITE SECTOR %03x ADDR 0x%x %d bytes\n", __FUNCTION__, fa->id, (addr/fa->prop.sector_size), addr, len);
+                ///CONSOLE(&conlog, "%s() FLASH %d WRITE SECTOR %03x ADDR 0x%x %d bytes\n", __FUNCTION__, fa->id, (addr/fa->prop.sector_size), addr, len);
                 // delay
                 double delay_us = (fa->prop.t_comm_byte_us * len) + (fa->prop.t_byte_first_us + (len - 1) * fa->prop.t_byte_us);
                 fa->elapsed+=delay_us;
@@ -129,7 +129,7 @@ int flash_area_read(struct flash_area *fa, uint32_t addr, uint8_t *data, uint32_
             if(fa->wear[(addr / fa->prop.sector_size)]>=0) memcpy(data, &fa->flash[addr], len);
             else memset(data, 0x55, len);
             ret = len;
-            CONSOLE(&conlog, "%s() FLASH %d READ [w=%d] 0x%x %d bytes\n", __FUNCTION__, fa->id, fa->wear[(addr / fa->prop.sector_size)], addr, len);
+            ///CONSOLE(&conlog, "%s() FLASH %d READ [w=%d] 0x%x %d bytes\n", __FUNCTION__, fa->id, fa->wear[(addr / fa->prop.sector_size)], addr, len);
             // delay
             double delay_us = fa->prop.t_comm_byte_us * len;
             fa->elapsed+=delay_us;
@@ -156,7 +156,7 @@ int flash_area_erase(struct flash_area *fa, uint32_t addr, uint32_t len)
                 ret = len;
                 int w=++fa->wear[(addr / fa->prop.sector_size)];
                 if(((double)rand() / RAND_MAX) < prob_bad(w, fa->prop.lifecycle)) fa->wear[(addr / fa->prop.sector_size)]*=-1;
-                CONSOLE(&conlog, "%s() FLASH %d ERASE [w=%d] SECTOR %03x\n", __FUNCTION__, fa->id, fa->wear[(addr / fa->prop.sector_size)], (addr / (fa->prop.sector_size)));
+                ///CONSOLE(&conlog, "%s() FLASH %d ERASE [w=%d] SECTOR %03x\n", __FUNCTION__, fa->id, fa->wear[(addr / fa->prop.sector_size)], (addr / (fa->prop.sector_size)));
                 double delay_us = fa->prop.t_sector_erase_us;
                 fa->elapsed+=delay_us;
                 usleep((long)(delay_us*simulation_factor));
