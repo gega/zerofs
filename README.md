@@ -292,6 +292,15 @@ Moves the read pointer within a file.
 Negative offsets are relative to the end of the file.
 Seeking is **not supported during write mode**.
 
+^⎚-⎚^
+```c
+int zerofs_dir_next(struct zerofs *zfs, struct zerofs_dirent *de);
+```
+
+Reads the directory. Use a zero filled zerofs_dirent for the first file. It will fills the
+provided zerofs_dirent struct with the next file data and returns non-zero when no more
+files in the filesystem.
+
 ✒
 ```c
 int zerofs_delete(struct zerofs *zfs, const char *name);
