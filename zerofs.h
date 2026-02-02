@@ -134,6 +134,7 @@ enum zerofs_mode
 #define ZEROFS_ERR_BADSECTOR   (-10)
 #define ZEROFS_ERR_INVALIDNAME (-11)
 #define ZEROFS_ERR_INVALIDFP   (-12)
+#define ZEROFS_ERR_ENDOFDIR    (-13)
 
 // get sector_map index from the base of last_written
 #define ZEROFS_BLOCK(zfs, i) (((zfs)->meta.last_written+(i))%ZEROFS_NUMBER_OF_SECTORS)
@@ -541,33 +542,25 @@ static uint8_t zerofs_namemap_find_sector(struct zerofs *zfs, sector_t first)
 // return 0 if ok, -1 if last file reached
 int zerofs_dir_next(struct zerofs *zfs, struct zerofs_dirent *de)
 {
-  uint8_t id=ZEROFS_MAP_EMPTY;
+  uint8_t id;
   const struct zerofs_namemap *nmp;
-  struct zerofs_namemap nm={0};
   uint8_t type=0;
-  uint8_t basename[sizeof(nm.name)];
+  uint8_t basename[sizeof(((struct zerofs_namemap *)0)->name)];
   char name[9];
 
   if(NULL==zfs||NULL==de) return(ZEROFS_ERR_ARG);
 
-  if(de->name[0]=='\0')
-  {
-    // get first valid file 'id'
-    for(id=0,nmp=zfs->superblock->namemap;id<=zfs->last_namemap_id;nmp++,id++) if(nmp->type_len!=0) break;
-  }
-  else
-  {
-    // search for the file like the open does
-    id=de->id+1;
-  }
-  if(id!=ZEROFS_MAP_EMPTY && id<zfs->last_namemap_id)
+  if(de->name[0]!='\0') id=de->id+1;
+  else id=0;
+  for(nmp=&zfs->superblock->namemap[id];id<zfs->last_namemap_id;nmp++,id++) if(nmp->type_len!=0) break;
+  if(id<zfs->last_namemap_id)
   {
     int i,j;
     // fill the dirent with the data of file 'id'
-    memcpy(basename, zfs->superblock->namemap[id].name, sizeof(nm.name));
+    memcpy(basename, zfs->superblock->namemap[id].name, sizeof(((struct zerofs_namemap *)0)->name));
     name[0]='\0';
     zerofs_name_codec(name, basename, &type);
-    for(j=i=0;name[i]=='_'&&i<sizeof(name);i++);
+    for(j=i=0;name[i]=='_'&&i<(sizeof(name)-1);i++);
     for(;name[i]!='\0'&&i<sizeof(name);i++) de->name[j++]=name[i];
     type=ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id]);
     de->name[j++]='.';
@@ -578,7 +571,7 @@ int zerofs_dir_next(struct zerofs *zfs, struct zerofs_dirent *de)
     de->len=ZEROFS_NM_GET_SIZE(&zfs->superblock->namemap[id]);
     de->id=id;
   }
-  else return(ZEROFS_ERR_MAXFILES);
+  else return(ZEROFS_ERR_ENDOFDIR);
 
   return(0);
 }
