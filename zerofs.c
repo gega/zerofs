@@ -567,6 +567,23 @@ static int l_verify(lua_State *L)
     return((quit?luaL_error(L, "Interrupted"):1));
 }
 
+static int l_dir(lua_State *L)
+{
+  struct zerofs_dirent de;
+  int i=0;
+
+  memset(&de, 0, sizeof(struct zerofs_dirent));
+  while(0==zerofs_dir_next(&zfs, &de))
+  {
+    CONSOLE(&conlog, "INFO %s() dirent %d '%s' %d bytes\n", __FUNCTION__, i, de.name, de.len);
+    i++;
+  }
+  
+  lua_pushinteger(L, 0);
+  
+  return(0);
+}
+
 static int l_setdir(lua_State *L)
 {
     const char *dir = luaL_checkstring(L, 1);
@@ -721,6 +738,7 @@ static int luaopen_zerofslib(lua_State *L)
         { "assert", l_assert },
         { "badblock", l_badblock },
         { "erase_async", l_erase_async },
+        { "dir", l_dir },
         { NULL, NULL }
     };
     luaL_newlib(L, funcs);
@@ -750,7 +768,6 @@ int main(int argc, char **argv)
         printf("Usage: %s testfile.lua\n", argv[0]);
         exit(0);
     }
-
 
     CONSOLE(&conlog, "\nTEST %s %s STARTED AT %ld\n",argv[0],argv[1],time(NULL));
 
@@ -815,7 +832,6 @@ int main(int argc, char **argv)
       draw_update(1,1);
     }
     l_printdebug(NULL);
-
 
     curs_set(1);
     echo();

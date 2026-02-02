@@ -54,6 +54,10 @@
 #define ZEROFS_VERIFY (0)
 #endif
 
+#ifndef ZEROFS_PACKED
+#define ZEROFS_PACKED __attribute__((packed))
+#endif
+
 #ifndef ZEROFS_EXTENSION_LIST
 #define ZEROFS_EXTENSION_LIST \
     X("bin")                 \
@@ -136,13 +140,20 @@ enum zerofs_mode
 
 static_assert(sizeof(int)>=4, "int should be at least 4 bytes");
 
-struct zerofs_namemap
+struct ZEROFS_PACKED zerofs_namemap
 {
   uint8_t name[6];              // 6bit encoded 8 char string "a-zA-Z0-9._" leading '.'s discarded
   sector_t first_sector;        // first sector address of file
   uint16_t first_offset;        // offset in the first sector
   uint16_t reserved;
   uint32_t type_len;            // type and length combined: MSB is type 3 LSB are length
+};
+
+struct zerofs_dirent
+{
+  char name[8+1+3+1];           // 8+3 + \0
+  uint32_t len;
+  uint8_t id;
 };
 
 static_assert( (sizeof(uint32_t) % ZEROFS_SUPER_WRITE_GRANULARITY) == 0, "type_len field of struct zerofs_namemap not matching to ZEROFS_SUPER_WRITE_GRANULARITY, choose a larger type!");
@@ -210,6 +221,21 @@ struct zerofs_file
 };
 
 #define zerofs_file_len(fp) ((fp)->size)
+
+int zerofs_format(struct zerofs *zfs);
+int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc);
+int zerofs_is_readonly_mode(struct zerofs *zfs);
+int zerofs_readonly_mode(struct zerofs *zfs, uint8_t *sector_map);
+int zerofs_dir_next(struct zerofs *zfs, struct zerofs_dirent *de);
+int zerofs_open(struct zerofs *zfs, struct zerofs_file *fp, const char *name);
+int zerofs_delete(struct zerofs *zfs, const char *name);
+int zerofs_create(struct zerofs *zfs, struct zerofs_file *fp, const char *name);
+int zerofs_close(struct zerofs_file *fp);
+int zerofs_read(struct zerofs_file *fp, uint8_t *buf, uint32_t len);
+int zerofs_seek(struct zerofs_file *fp, int32_t pos);
+int zerofs_append(struct zerofs *zfs, struct zerofs_file *fp, const char *name);
+int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len);
+int zerofs_background_erase(struct zerofs *zfs);
 
 #endif
 
@@ -510,6 +536,53 @@ static uint8_t zerofs_namemap_find_sector(struct zerofs *zfs, sector_t first)
   return(ret);
 }
 
+// fill out next file in provided struct zerofs_dirent
+// if name is \0 it returns the first file
+// return 0 if ok, -1 if last file reached
+int zerofs_dir_next(struct zerofs *zfs, struct zerofs_dirent *de)
+{
+  uint8_t id=ZEROFS_MAP_EMPTY;
+  const struct zerofs_namemap *nmp;
+  struct zerofs_namemap nm={0};
+  uint8_t type=0;
+  uint8_t basename[sizeof(nm.name)];
+  char name[9];
+
+  if(NULL==zfs||NULL==de) return(ZEROFS_ERR_ARG);
+
+  if(de->name[0]=='\0')
+  {
+    // get first valid file 'id'
+    for(id=0,nmp=zfs->superblock->namemap;id<=zfs->last_namemap_id;nmp++,id++) if(nmp->type_len!=0) break;
+  }
+  else
+  {
+    // search for the file like the open does
+    id=de->id+1;
+  }
+  if(id!=ZEROFS_MAP_EMPTY && id<zfs->last_namemap_id)
+  {
+    int i,j;
+    // fill the dirent with the data of file 'id'
+    memcpy(basename, zfs->superblock->namemap[id].name, sizeof(nm.name));
+    name[0]='\0';
+    zerofs_name_codec(name, basename, &type);
+    for(j=i=0;name[i]=='_'&&i<sizeof(name);i++);
+    for(;name[i]!='\0'&&i<sizeof(name);i++) de->name[j++]=name[i];
+    type=ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id]);
+    de->name[j++]='.';
+    de->name[j++]=zerofs_extensions[type][0];
+    de->name[j++]=zerofs_extensions[type][1];
+    de->name[j++]=zerofs_extensions[type][2];
+    de->name[j]='\0';
+    de->len=ZEROFS_NM_GET_SIZE(&zfs->superblock->namemap[id]);
+    de->id=id;
+  }
+  else return(ZEROFS_ERR_MAXFILES);
+
+  return(0);
+}
+
 /*
 struct zerofs_fp *zerofs_open(const char *name);                                        - RO read only open of a file
   1. search for the name in namemap
@@ -540,7 +613,7 @@ int zerofs_open(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
   ret=zerofs_name_codec((char *)name, nm.name, &type);
   if(0==ret)
   {
-    nm.type_len=type<<24;
+    nm.type_len=((uint32_t)type)<<24;
     id=zerofs_namemap_find_name(zfs, &nm, type);
     // 2.
     if(id!=ZEROFS_MAP_EMPTY)
@@ -658,7 +731,7 @@ int zerofs_delete(struct zerofs *zfs, const char *name)
     ret=zerofs_name_codec((char *)name, nm.name, &type);
     if(0==ret)
     {
-      nm.type_len=type<<24;
+      nm.type_len=((uint32_t)type)<<24;
       id=zerofs_namemap_find_name(zfs, &nm, type);
       ret=zerofs_delete_by_id(zfs, id);
     }
@@ -769,7 +842,7 @@ int zerofs_close(struct zerofs_file *fp)
   if(NULL==zfs) return(ZEROFS_ERR_INVALIDFP);
   if(ZEROFS_MODE_WRITE_ONLY==fp->mode)
   {
-    uint32_t type_len=(fp->type<<24) | fp->size;
+    uint32_t type_len=(((uint32_t)fp->type)<<24) | fp->size;
     uint16_t addr=((fp->id)*(sizeof(struct zerofs_namemap))) + offsetof(struct zerofs_superblock, namemap) + offsetof(struct zerofs_namemap, type_len);
 
     zfs->fls->fls_write(zfs->fls->super_ud, (zfs->bank*ZEROFS_SUPER_SECTOR_SIZE) + addr, (uint8_t *)&type_len, sizeof(type_len));
@@ -889,7 +962,7 @@ int zerofs_append(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
     ret=zerofs_name_codec((char *)name, nm.name, &fp->type);
     if(0==ret)
     {
-      nm.type_len=fp->type<<24;
+      nm.type_len=((uint32_t)fp->type)<<24;
       id=zerofs_namemap_find_name(zfs, &nm, fp->type);
       if(ZEROFS_MAP_EMPTY!=id)
       {

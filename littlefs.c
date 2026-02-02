@@ -573,6 +573,11 @@ static int l_verify(lua_State *L)
     return((quit?luaL_error(L, "Interrupted"):1));
 }
 
+static int l_dir(lua_State *L)
+{
+  return(0);
+}
+
 static int l_setdir(lua_State *L)
 {
     const char *dir = luaL_checkstring(L, 1);
@@ -717,6 +722,7 @@ static int luaopen_littlefslib(lua_State *L)
         { "assert", l_assert },
         { "badblock", l_badblock },
         { "erase_async", l_erase_async },
+        { "dir", l_dir },
         { NULL, NULL }
     };
     luaL_newlib(L, funcs);

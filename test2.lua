@@ -5,7 +5,7 @@ local TEST_DIR = "data"
 local SIZES = require("testfilesizes")
 local FILES = {};
 local ITERATIONS = 160
-local CHUNK_SIZE = 3000
+local CHUNK_SIZE = 510
 local SPEED_FACTOR = 0
 local DELAY_MS = 0
 local DELETE_RATIO = 0.45   -- fraction of existing files to delete when full
@@ -90,6 +90,7 @@ for iter = 1, ITERATIONS do
 
   -- VERIFY PHASE -------------------------------------------------
   m.setmode("read")
+  m.dir()
   for _, s in ipairs(SIZES) do
     f=FILES[s]
     if state[f] == "good" then

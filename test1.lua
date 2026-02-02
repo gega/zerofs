@@ -19,6 +19,7 @@ st=m.write("swim.qla", chunk);
 if (st~=0) then m.assert("write swim.qla"); end
 
 m.setmode("read");
+m.dir();
 m.printdebug();
 
 st=m.verify("zerofs.qli");
@@ -50,6 +51,7 @@ if (st~=0) then m.assert("write setal.qla"); end
 
 
 m.setmode("read");
+m.dir();
 m.verify("swim.qla");
 if (st~=0) then m.assert("verify swim.qla"); end
 
@@ -77,6 +79,7 @@ if (st~=0) then m.assert("write falcon.qla"); end
 
 
 m.setmode("read");
+m.dir();
 
 --m.setstep(false);
 --m.speed(0);
@@ -105,6 +108,8 @@ m.write("frog.qla", chunk);
 if (st~=0) then m.assert("write frog.qla"); end
 
 m.setmode("read");
+m.dir();
+
 m.verify("eating.qla");
 if (st~=0) then m.assert("verify eating.qla"); end
 m.verify("frog.qla");
@@ -131,6 +136,7 @@ if (st~=0) then m.assert("write setal.qla"); end
 m.delete("falcon.qla");
 
 m.setmode("read");
+m.dir();
 --m.speed(0);
 m.verify("metro.qla");
 if (st~=0) then m.assert("verify metro.qla"); end
