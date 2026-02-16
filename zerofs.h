@@ -217,8 +217,9 @@ struct zerofs_file
   sector_t sector;
   uint16_t pos;
   uint8_t type;
-  uint32_t size;
   uint8_t flags;
+  uint32_t size;
+  uint32_t bytepos;
 };
 
 #define zerofs_file_len(fp) ((fp)->size)
@@ -615,6 +616,7 @@ int zerofs_open(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
       sc=zfs->superblock->namemap[id].first_sector;
       of=zfs->superblock->namemap[id].first_offset;
       fp->pos=of;
+      fp->bytepos=0;
       // 4.
       fp->sector=sc;
       fp->id=id;
@@ -767,6 +769,7 @@ int zerofs_create(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
     zerofs_delete(zfs, name);
     memset(fp, 0, sizeof(struct zerofs_file));
     fp->zfs=zfs;
+    fp->bytepos=0;
     // 1
     int id=zerofs_namemap_find_slot(zfs);
     if(id>=0)
@@ -865,6 +868,7 @@ int zerofs_read(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
   if(NULL==fp||NULL==buf) return(ZEROFS_ERR_ARG);
   
   zfs=fp->zfs;
+  len=MIN(len, (fp->size-fp->bytepos));
   while(len>0)
   {
     l=MIN((int)len, (ZEROFS_FLASH_SECTOR_SIZE-fp->pos));
@@ -879,6 +883,7 @@ int zerofs_read(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
       fp->pos=0;
     }
   }
+  fp->bytepos+=ret;
   
   return(ret);
 }
@@ -902,6 +907,7 @@ int zerofs_seek(struct zerofs_file *fp, int32_t pos)
     if(ABS(pos)<fp->size)
     {
       pos=( pos>=0 ? pos : fp->size+pos);
+      fp->bytepos=pos;
       first_block_fill=ZEROFS_FLASH_SECTOR_SIZE-fp->zfs->superblock->namemap[fp->id].first_offset;
       sec=fp->zfs->superblock->namemap[fp->id].first_sector;
       if(pos > first_block_fill)
@@ -952,6 +958,7 @@ int zerofs_append(struct zerofs *zfs, struct zerofs_file *fp, const char *name)
   {
     memset(fp, 0, sizeof(struct zerofs_file));
     fp->zfs=zfs;
+    fp->bytepos=fp->size;
     ret=zerofs_name_codec((char *)name, nm.name, &fp->type);
     if(0==ret)
     {
@@ -1127,7 +1134,9 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
     }
   }
   else ret=ZEROFS_ERR_READMODE;
-  
+
+  if(ret>0) fp->bytepos+=ret;
+
   return(ret);
 }
 
