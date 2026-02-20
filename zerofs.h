@@ -883,7 +883,7 @@ int zerofs_read(struct zerofs_file *fp, uint8_t *buf, uint32_t len)
       fp->pos=0;
     }
   }
-  fp->bytepos+=ret;
+  if(ret>0) fp->bytepos+=ret;
   
   return(ret);
 }
