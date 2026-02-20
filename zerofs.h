@@ -916,7 +916,7 @@ int zerofs_seek(struct zerofs_file *fp, int32_t pos)
         dec=first_block_fill;
         do
         {
-          for(i=0; fp->id!=sm[(i+sec)%ZEROFS_NUMBER_OF_SECTORS] && i<ZEROFS_NUMBER_OF_SECTORS; i++);
+          for(i=1; fp->id!=sm[(i+sec)%ZEROFS_NUMBER_OF_SECTORS] && i<ZEROFS_NUMBER_OF_SECTORS; i++);
           if(i>=ZEROFS_NUMBER_OF_SECTORS) { ret=ZEROFS_ERR_OVERFLOW; break; }
           sec=(i+sec)%ZEROFS_NUMBER_OF_SECTORS;
           pos-=dec;
