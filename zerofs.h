@@ -135,6 +135,7 @@ enum zerofs_mode
 #define ZEROFS_ERR_INVALIDNAME (-11)
 #define ZEROFS_ERR_INVALIDFP   (-12)
 #define ZEROFS_ERR_ENDOFDIR    (-13)
+#define ZEROFS_ERR_BADEXT      (-14)
 
 // get sector_map index from the base of last_written
 #define ZEROFS_BLOCK(zfs, i) (((zfs)->meta.last_written+(i))%ZEROFS_NUMBER_OF_SECTORS)
@@ -162,7 +163,7 @@ static_assert( (sizeof(struct zerofs_namemap) % ZEROFS_SUPER_WRITE_GRANULARITY) 
 static_assert(ZEROFS_SUPER_WRITE_GRANULARITY<=sizeof(struct zerofs_namemap), "Superblock flash write granularity shouldn't be larger than sizeof(struct zerofs_namemap)");
 static_assert( (ZEROFS_NUMBER_OF_SECTORS % ZEROFS_SUPER_WRITE_GRANULARITY) == 0, "sector_map size is not matching to ZEROFS_SUPER_WRITE_GRANULARITY, add some padding bytes!");
 
-#define ZEROFS_NM_GET_TYPE(nm) ((nm)->type_len>>24)
+#define ZEROFS_NM_GET_TYPE(nm) ( ((nm)->type_len>>24) < ARRAY_SIZE(zerofs_extensions) ? ((nm)->type_len>>24) : 0 )
 #define ZEROFS_NM_GET_SIZE(nm) ((nm)->type_len&0xffffff)
 
 #define ZEROFS_FLAGS_EMPTY      (1u<<0)
@@ -245,13 +246,12 @@ int zerofs_background_erase(struct zerofs *zfs);
 #ifdef ZEROFS_IMPLEMENTATION
 
 
-static const char *zerofs_extensions[]=
+static const char zerofs_extensions[][4]=
 {
     "---",
     #define X(ext) ext,
     ZEROFS_EXTENSION_LIST
     #undef X
-    NULL
 };
 
 
@@ -279,7 +279,6 @@ int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc)
 
   memset(zfs, 0, sizeof(struct zerofs));
   zfs->fls=fls_acc;
-
   bank=0;
   struct zerofs_superblock *sb0=(struct zerofs_superblock *)(zfs->fls->superblock_banks + (bank*ZEROFS_SUPER_SECTOR_SIZE));
   v0=sb0->meta.version;
@@ -402,7 +401,7 @@ static inline int zerofs_get_type(const char *extension)
 
   assert(extension);
   
-  for(i=0; NULL!=zerofs_extensions[i]; i++)
+  for(i=0; i<ARRAY_SIZE(zerofs_extensions); i++)
   {
     if(zerofs_extensions[i][0]>extension[0]) break;
     if(zerofs_extensions[i][0]==extension[0])
@@ -553,6 +552,7 @@ int zerofs_dir_next(struct zerofs *zfs, struct zerofs_dirent *de)
 
   if(de->name[0]!='\0') id=de->id+1;
   else id=0;
+  if(id>=ZEROFS_MAX_FILES) return(ZEROFS_ERR_MAXFILES);
   for(nmp=&zfs->superblock->namemap[id];id<zfs->last_namemap_id;nmp++,id++) if(nmp->type_len!=0) break;
   if(id<zfs->last_namemap_id)
   {
@@ -561,8 +561,8 @@ int zerofs_dir_next(struct zerofs *zfs, struct zerofs_dirent *de)
     memcpy(basename, zfs->superblock->namemap[id].name, sizeof(((struct zerofs_namemap *)0)->name));
     name[0]='\0';
     zerofs_name_codec(name, basename, &type);
-    for(j=i=0;name[i]=='_'&&i<(sizeof(name)-1);i++);
-    for(;name[i]!='\0'&&i<sizeof(name);i++) de->name[j++]=name[i];
+    for(j=i=0; i<sizeof(name)-1 && name[i]=='_'; i++);
+    for(;i<sizeof(name)-1 && name[i]!='\0' && j<sizeof(de->name)-5; i++) de->name[j++] = name[i];
     type=ZEROFS_NM_GET_TYPE(&zfs->superblock->namemap[id]);
     de->name[j++]='.';
     de->name[j++]=zerofs_extensions[type][0];
