@@ -224,6 +224,7 @@ struct zerofs_file
 };
 
 #define zerofs_file_len(fp) ((fp)->size)
+#define zerofs_ftell(fp) ((fp)->bytepos)
 
 int zerofs_format(struct zerofs *zfs);
 int zerofs_init(struct zerofs *zfs, const struct zerofs_flash_access *fls_acc);
