@@ -283,6 +283,13 @@ int zerofs_write(struct zerofs_file *fp, uint8_t *buf, uint32_t len);
 
 Writes up to `len` bytes to a file opened for writing.
 
+^⎚-⎚^ & ✒
+```c
+int zerofs_ftell(struct zerofs_file *fp);
+```
+
+Returns the pointer in the file for future zerofs_seek() calls.
+
 ^⎚-⎚^
 ```c
 int zerofs_seek(struct zerofs_file *fp, int32_t pos);
@@ -323,7 +330,7 @@ int zerofs_background_erase(struct zerofs *zfs);
 ```
 
 Performs background flash erases while in **READ mode**.
-Does not block reads, but must complete before switching to WRITE mode. The underlying flash driver is expected to handle the background flash operation if supported by the chip.
+Does not block reads, but must complete before switching toutctime.tv_sec WRITE mode. The underlying flash driver is expected to handle the background flash operation if supported by the chip.
 
 # Third-party components
 
